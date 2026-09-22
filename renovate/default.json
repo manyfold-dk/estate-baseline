@@ -1,0 +1,54 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommits", "helpers:pinGitHubActionDigests"],
+  "labels": ["dependencies"],
+  "timezone": "Europe/Copenhagen",
+  "schedule": ["every weekend"],
+  "prHourlyLimit": 2,
+  "prConcurrentLimit": 5,
+  "minimumReleaseAge": "3 days",
+  "recreateWhen": "always",
+  "packageRules": [
+    {
+      "description": "Group Maven dependencies",
+      "matchManagers": ["maven"],
+      "groupName": "Maven dependencies",
+      "schedule": ["every weekend"]
+    },
+    {
+      "description": "Group Helm charts",
+      "matchManagers": ["helm-values", "helmv3"],
+      "groupName": "Helm Charts",
+      "schedule": ["every weekend"]
+    },
+    {
+      "description": "Group npm dependencies",
+      "matchManagers": ["npm"],
+      "groupName": "npm dependencies",
+      "schedule": ["every weekend"]
+    },
+    {
+      "description": "Auto-merge patch updates for Maven test dependencies",
+      "matchManagers": ["maven"],
+      "matchDepTypes": ["test"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Auto-merge minor/patch for npm devDependencies -- conditional on consumer CI granting no write token to npm-executing jobs (platform ADR-0025 amendment, 2026-06-14)",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "minimumReleaseAge": "7 days",
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Major updates require manual review",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["dependencies", "major-update"]
+    }
+  ]
+}

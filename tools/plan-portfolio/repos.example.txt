@@ -1,0 +1,5 @@
+# Repos scanned by the plan portfolio generator: sibling directories of the umbrella, one per
+# line. Copy to repos.txt and list your own. repos.txt is private to each installation.
+umbrella
+platform
+tenant-a

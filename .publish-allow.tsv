@@ -1,0 +1,22 @@
+# Shape values this repository is allowed to carry. Shape rows only; the gate refuses a name row.
+# The tools operate on these directories, so their docs and tests have to say them.
+repository path	docs/plans/
+repository path	docs/portfolio/
+repository path	docs/adr/
+repository path	docs/specs/
+repository path	docs/runbooks/
+repository path	apps/example-app/
+# invented test versions (conformance fixture, agent stamp)
+exact version	9.9.1
+exact version	9.9.0
+exact version	0.0.1
+# the repository's own release number is not a version in use
+exact version	*	baseline-agent/VERSION
+# the pattern file matches one of its own patterns
+cluster-internal host	*	scripts/publish-check/patterns.tsv
+# CI installs pinned scanner releases with checksums; a CI tool's version is not a version in use
+exact version	*	.github/actions/install-scanners/action.yml
+# CI installs pinned tools with checksums; a CI tool's version is not a version in use
+exact version	*	.github/workflows/manifest-validate.yml
+exact version	*	.github/actions/secret-scan/action.yml
+exact version	*	.github/workflows/blacksmith-node-app-ci.yml

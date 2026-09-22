@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - run: sudo apt-get update && sudo apt-get install -y bats jq
+      # The gate's tests and the secret-scan action's tests skip without the scanners; a
+      # skipped test is not a passed one.
+      - uses: ./.github/actions/install-scanners
+      - run: bats scripts/agent scripts/conformance scripts/docs scripts/publish-check .github/actions/bump-deploy-tag .github/actions/read-ci-engine-switch .github/actions/secret-scan
+      - run: cd scripts/agent && python3 -m unittest
+      - run: cd baseline-agent/skills/agent-mailbox/scripts && python3 -m unittest
+      - run: cd tools/plan-portfolio && python3 -m unittest
+
+  publish-check:
+    # The publication gate over this repository, shapes and scanners only: the name list is
+    # private to the estate and never enters this repository (docs/adr/0001). Both scanners
+    # are pinned releases verified against their published sha256; bump version and sums together.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/install-scanners
+      - run: scripts/publish-check/publish-check.sh . --names none --allow .publish-allow.tsv
+
+  secret-scan:
+    # This repository's own commits, through the reusable workflow every consumer calls.
+    uses: ./.github/workflows/secret-scan.yml

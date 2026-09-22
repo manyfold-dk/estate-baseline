@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Mailbox"
+  short_description: "Coordinate agents through local mailboxes"
+  default_prompt: "Use $agent-mailbox to ask one intake form, then set up a shared mailbox for coordinating a main agent and a dependent agent."

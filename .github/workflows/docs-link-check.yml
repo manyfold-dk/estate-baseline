@@ -1,0 +1,28 @@
+name: Docs link check (reusable)
+
+# Reusable lychee link check. Defaults to OFFLINE -- it catches relative-link + anchor rot
+# deterministically with no network flakes. Pass `args` to opt into online checking or to
+# scope/exclude paths. A repo-local `.lycheeignore` is honoured automatically.
+
+on:
+  workflow_call:
+    inputs:
+      args:
+        description: lychee arguments. Default checks relative links + anchors offline.
+        type: string
+        default: "--offline --include-fragments --no-progress --root-dir $GITHUB_WORKSPACE '**/*.md'"
+
+permissions:
+  contents: read
+
+jobs:
+  lychee:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
+        with:
+          args: ${{ inputs.args }}
+          fail: true

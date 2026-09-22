@@ -1,0 +1,150 @@
+name: Blacksmith Node app CI (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      app-name:     { type: string, required: true }
+      image-base:   { type: string, required: true }
+      manifest-dir: { type: string, required: true }
+      switch-file:  { type: string, required: true }
+      node-version: { type: string, default: "24" }
+      pnpm-version: { type: string, default: "10.28.0" }
+      force-run:    { type: boolean, default: false }
+      force-deploy: { type: boolean, default: false }
+      argocd-url:   { type: string, default: "" }   # Argo CD link in the deploy notification; none when empty
+    secrets:
+      PUSH_TOKEN:
+        description: >-
+          Token used for the ghcr image push and the GitOps manifest push to main.
+          Scope: write:packages + contents write on the calling repo (fine-grained
+          PAT preferred). Required -- there is deliberately no fallback.
+        required: true
+      SLACK_WEBHOOK_DEPLOYMENTS_URL:
+        description: Slack incoming-webhook URL for deploy notifications. Step is skipped when absent.
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  read-switch:
+    name: Read CI switch
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (!contains(github.event.head_commit.message, '[skip ci]') &&
+       !contains(github.event.head_commit.message, '[ci skip]'))
+    outputs:
+      run_blacksmith: ${{ steps.switch.outputs.run_blacksmith }}
+      deploy_blacksmith: ${{ steps.switch.outputs.deploy_blacksmith }}
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - uses: useblacksmith/checkout@41cdeedae8edb2e684ba22896a5fd2a3cb85db6b # v1
+        with:
+          persist-credentials: false
+      - name: Compute image tag
+        id: meta
+        run: echo "image_tag=main-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Read and validate the CI switch
+        id: switch
+        uses: manyfold-dk/estate-baseline/.github/actions/read-ci-engine-switch@55dfb458d9e5ab3c3bc9212c0b19d304d1d50465 # unreleased
+        with:
+          env-file: ${{ inputs.switch-file }}
+          name: ${{ inputs.app-name }}
+          force-run: ${{ inputs.force-run }}
+          force-deploy: ${{ inputs.force-deploy }}
+
+  checks:
+    name: Checks
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    needs: read-switch
+    if: needs.read-switch.outputs.run_blacksmith == 'true'
+    steps:
+      - uses: useblacksmith/checkout@41cdeedae8edb2e684ba22896a5fd2a3cb85db6b # v1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6
+        with: { version: "${{ inputs.pnpm-version }}" }
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "${{ inputs.node-version }}"
+          cache: pnpm
+          cache-dependency-path: apps/${{ inputs.app-name }}/pnpm-lock.yaml
+      - name: Install, lint, test, build
+        working-directory: apps/${{ inputs.app-name }}
+        run: |
+          set -eu
+          pnpm install --frozen-lockfile
+          pnpm lint
+          pnpm test
+          pnpm build
+
+  image:
+    name: Build and push image
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    needs: [read-switch, checks]
+    if: needs.read-switch.outputs.run_blacksmith == 'true'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: useblacksmith/checkout@41cdeedae8edb2e684ba22896a5fd2a3cb85db6b # v1
+        with:
+          persist-credentials: false
+      - uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.PUSH_TOKEN }}
+      - uses: useblacksmith/setup-docker-builder@ab5c1da94f53f5cd75c1038092aa276dddfccbba # v1
+      - name: Build and push image
+        uses: useblacksmith/build-push-action@fb9e3e6a9299c78462bfadd0d93352c316adc9b8 # v2
+        with:
+          context: apps/${{ inputs.app-name }}
+          file: apps/${{ inputs.app-name }}/Dockerfile
+          push: true
+          tags: ${{ inputs.image-base }}:${{ needs.read-switch.outputs.image_tag }}
+          github-token: ${{ secrets.PUSH_TOKEN }}
+
+  deploy-manifest:
+    name: Deploy manifest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    needs: [read-switch, checks, image]
+    if: >-
+      needs.read-switch.outputs.deploy_blacksmith == 'true' &&
+      github.ref == 'refs/heads/main'
+    # Map the optional secret to a job-level env so the notify step's `if:` can
+    # read it -- the `secrets` context is NOT available in a step-level `if`,
+    # only in `env:`/`with:` (GitHub context-availability rules).
+    env:
+      SLACK_WEBHOOK_DEPLOYMENTS_URL: ${{ secrets.SLACK_WEBHOOK_DEPLOYMENTS_URL }}
+    steps:
+      - uses: useblacksmith/checkout@41cdeedae8edb2e684ba22896a5fd2a3cb85db6b # v1
+        with:
+          ref: main
+          token: ${{ secrets.PUSH_TOKEN }}
+      - name: Commit and push image tag
+        uses: manyfold-dk/estate-baseline/.github/actions/bump-deploy-tag@55dfb458d9e5ab3c3bc9212c0b19d304d1d50465 # unreleased
+        with:
+          app-name: ${{ inputs.app-name }}
+          image-base: ${{ inputs.image-base }}
+          tag: ${{ needs.read-switch.outputs.image_tag }}
+          manifest-dir: ${{ inputs.manifest-dir }}
+      - name: Scrub push credentials
+        if: always()
+        run: git config --local --unset-all http.https://github.com/.extraheader || true
+      - name: Notify deployment channel
+        if: ${{ env.SLACK_WEBHOOK_DEPLOYMENTS_URL != '' }}
+        uses: manyfold-dk/estate-baseline/.github/actions/notify-deployment@55dfb458d9e5ab3c3bc9212c0b19d304d1d50465 # unreleased
+        with:
+          app-name: ${{ inputs.app-name }}
+          pipeline-name: ${{ github.workflow }}
+          status: succeeded
+          engine: blacksmith
+          environment: cloud
+          run-name: run ${{ github.run_id }}.${{ github.run_attempt }}
+          run-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          commit-sha: ${{ github.sha }}
+          image-tag: ${{ needs.read-switch.outputs.image_tag }}
+          argocd-url: ${{ inputs.argocd-url }}
+          slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_DEPLOYMENTS_URL }}

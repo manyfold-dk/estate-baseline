@@ -1,0 +1,64 @@
+# Discovery expectations: no automatic migration; activation requires runtime gate evidence.
+discovery:
+  claude: .claude/skills
+  codex_default: legacy
+  codex_candidate: .agents/skills
+  codex_user_root: ~/.codex/skills
+
+# baseline-agent vendor profiles -- repo-type -> asset subset.
+# Parsed by scripts/agent/{vendor,check}.sh with awk (2-space profile keys, 4-space "- " items).
+#
+# CLAUDE.baseline.md / AGENTS.baseline.md are special: vendored as the marker-delimited
+# house-rules block in the consumer's CLAUDE.md / AGENTS.md -- NOT copied as files.
+# Skill environment.md overlays are repo-owned: never listed here, never vendored, never checked.
+profiles:
+  app:
+    - helpers/review_scope.py
+    - references/task-review.md
+    - references/documentation/lifecycle.md
+    - references/documentation/templates.md
+    - references/documentation/runbooks.md
+    - skills/archive-plan/references/inspection.md
+    - skills/plan-design/references/review.md
+    - skills/plan-writing/references/review.md
+    - skills/plan-writing/references/template.md
+    - model-guidance/astra.md
+    - model-guidance/opus-5.md
+    - model-guidance/fable-5-1.md
+    - model-guidance/fable-5.md
+    - CLAUDE.baseline.md
+    - AGENTS.baseline.md
+    - rules/git-workflow.md
+    - rules/documentation.md
+    - rules/worktrees.md
+    - skills/dev-workflow/SKILL.md
+    - skills/verification-loop/SKILL.md
+    - skills/archive-plan/SKILL.md
+    - skills/interview/SKILL.md
+    - skills/plan-design/SKILL.md
+    - skills/plan-writing/SKILL.md
+    - agents/implementer.md
+    - agents/spec-reviewer.md
+  docs:
+    - helpers/review_scope.py
+    - references/task-review.md
+    - references/documentation/lifecycle.md
+    - references/documentation/templates.md
+    - references/documentation/runbooks.md
+    - skills/archive-plan/references/inspection.md
+    - skills/plan-design/references/review.md
+    - skills/plan-writing/references/review.md
+    - skills/plan-writing/references/template.md
+    - model-guidance/astra.md
+    - model-guidance/opus-5.md
+    - model-guidance/fable-5-1.md
+    - model-guidance/fable-5.md
+    - CLAUDE.baseline.md
+    - AGENTS.baseline.md
+    - rules/git-workflow.md
+    - rules/documentation.md
+    - rules/worktrees.md
+    - skills/archive-plan/SKILL.md
+    - skills/interview/SKILL.md
+    - skills/plan-design/SKILL.md
+    - skills/plan-writing/SKILL.md

@@ -1,0 +1,60 @@
+name: Secret scan
+description: Install a checksum-verified gitleaks and scan the commits this event introduced. Needs a full-history checkout.
+inputs:
+  full-history:
+    description: Scan every commit on every ref instead of the event's range (scheduled sweeps).
+    required: false
+    default: "false"
+  # Bump both together: the checksums are in the release's gitleaks_<version>_checksums.txt.
+  gitleaks-version:
+    description: gitleaks release to install, without the leading v.
+    required: false
+    default: "8.30.1"
+  gitleaks-sha256-x64:
+    description: sha256 of gitleaks_<version>_linux_x64.tar.gz.
+    required: false
+    default: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+  gitleaks-sha256-arm64:
+    description: sha256 of gitleaks_<version>_linux_arm64.tar.gz.
+    required: false
+    default: "e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080"
+runs:
+  using: composite
+  steps:
+    - name: Install gitleaks
+      shell: bash
+      env:
+        VERSION: ${{ inputs.gitleaks-version }}
+        SHA_X64: ${{ inputs.gitleaks-sha256-x64 }}
+        SHA_ARM64: ${{ inputs.gitleaks-sha256-arm64 }}
+      run: |
+        set -euo pipefail
+        case "$(uname -m)" in
+          x86_64) arch=x64 sha="$SHA_X64" ;;
+          aarch64|arm64) arch=arm64 sha="$SHA_ARM64" ;;
+          *) echo "unsupported architecture: $(uname -m)" >&2; exit 2 ;;
+        esac
+        file="gitleaks_${VERSION}_linux_${arch}.tar.gz"
+        curl -fsSL --retry 3 -o "$RUNNER_TEMP/$file" \
+          "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/$file"
+        echo "$sha  $RUNNER_TEMP/$file" | sha256sum -c -
+        mkdir -p "$RUNNER_TEMP/gitleaks-bin"
+        tar -xzf "$RUNNER_TEMP/$file" -C "$RUNNER_TEMP/gitleaks-bin" gitleaks
+        echo "$RUNNER_TEMP/gitleaks-bin" >> "$GITHUB_PATH"
+    - name: Scan
+      shell: bash
+      # Event values reach the script through the environment, never through the script text.
+      env:
+        EVENT: ${{ github.event_name }}
+        PR_BASE: ${{ github.event.pull_request.base.sha }}
+        PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        PUSH_BEFORE: ${{ github.event.before }}
+        PUSH_HEAD: ${{ github.sha }}
+        FULL: ${{ inputs.full-history }}
+      run: |
+        set -euo pipefail
+        args=(--event "$EVENT")
+        if [ "$EVENT" = push ]; then args+=(--before "$PUSH_BEFORE" --head "$PUSH_HEAD")
+        else args+=(--base "$PR_BASE" --head "$PR_HEAD"); fi
+        [ "$FULL" = true ] && args+=(--full-history)
+        "${{ github.action_path }}/secret-scan.sh" "${args[@]}"

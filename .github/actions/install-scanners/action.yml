@@ -1,0 +1,37 @@
+name: Install scanners
+description: Install gitleaks and trufflehog from pinned releases verified against their published sha256. Bump a version and its sums together.
+inputs:
+  gitleaks-version:
+    required: false
+    default: "8.30.1"
+  gitleaks-sha256-x64:
+    required: false
+    default: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+  trufflehog-version:
+    required: false
+    default: "3.97.5"
+  trufflehog-sha256-amd64:
+    required: false
+    default: "e3d97199c565c37ca6152750197f667e08ae6a1edf5911fbdec168622b28620c"
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        GITLEAKS_VERSION: ${{ inputs.gitleaks-version }}
+        GITLEAKS_SHA256: ${{ inputs.gitleaks-sha256-x64 }}
+        TRUFFLEHOG_VERSION: ${{ inputs.trufflehog-version }}
+        TRUFFLEHOG_SHA256: ${{ inputs.trufflehog-sha256-amd64 }}
+      run: |
+        set -euo pipefail
+        [ "$(uname -m)" = x86_64 ] || { echo "install-scanners: only x86_64 runners are pinned" >&2; exit 2; }
+        bin="$RUNNER_TEMP/scanners"; mkdir -p "$bin"
+        f="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+        curl -fsSL --retry 3 -o "$RUNNER_TEMP/$f" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$f"
+        echo "$GITLEAKS_SHA256  $RUNNER_TEMP/$f" | sha256sum -c -
+        tar -xzf "$RUNNER_TEMP/$f" -C "$bin" gitleaks
+        f="trufflehog_${TRUFFLEHOG_VERSION}_linux_amd64.tar.gz"
+        curl -fsSL --retry 3 -o "$RUNNER_TEMP/$f" "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/$f"
+        echo "$TRUFFLEHOG_SHA256  $RUNNER_TEMP/$f" | sha256sum -c -
+        tar -xzf "$RUNNER_TEMP/$f" -C "$bin" trufflehog
+        echo "$bin" >> "$GITHUB_PATH"

@@ -1,0 +1,46 @@
+name: Read CI engine switch
+description: Read and validate the CI engine switch file (CI_MODE / DEPLOY_ENGINE); emit run/deploy gating outputs.
+inputs:
+  env-file:
+    description: Path to the switch file, relative to the workspace or absolute.
+    required: true
+  name:
+    description: Human-readable app name for validation messages.
+    required: false
+    default: application
+  force-run:
+    description: Force run_blacksmith=true (manual dispatch).
+    required: false
+    default: "false"
+  force-deploy:
+    description: Force deploy_blacksmith=true (manual dispatch).
+    required: false
+    default: "false"
+outputs:
+  run_blacksmith:
+    description: Whether the Blacksmith build/test jobs should run.
+    value: ${{ steps.switch.outputs.run_blacksmith }}
+  deploy_blacksmith:
+    description: Whether the Blacksmith deploy job should run.
+    value: ${{ steps.switch.outputs.deploy_blacksmith }}
+runs:
+  using: composite
+  steps:
+    - id: switch
+      shell: bash
+      # Inputs reach the script through the environment, never through the script text.
+      env:
+        IN_ENV_FILE: ${{ inputs.env-file }}
+        IN_NAME: ${{ inputs.name }}
+        IN_FORCE_RUN: ${{ inputs.force-run }}
+        IN_FORCE_DEPLOY: ${{ inputs.force-deploy }}
+      run: |
+        set -eu
+        FORCE=""
+        [ "$IN_FORCE_RUN" = "true" ] && FORCE="$FORCE --force-run"
+        [ "$IN_FORCE_DEPLOY" = "true" ] && FORCE="$FORCE --force-deploy"
+        # shellcheck disable=SC2086
+        "${{ github.action_path }}/read-ci-engine-switch.sh" \
+          --env-file "$IN_ENV_FILE" \
+          --name "$IN_NAME" \
+          --github-output $FORCE

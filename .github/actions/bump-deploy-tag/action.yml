@@ -1,0 +1,48 @@
+name: Bump deploy tag
+description: Update a GitOps image tag, commit, and push with rebase-retry. Runs in the caller's checkout with the caller's credentials (the deploy commit stays caller-side).
+inputs:
+  app-name:
+    description: Application name (used in the commit message).
+    required: true
+  image-base:
+    description: "Image repo without tag, e.g. ghcr.io/manyfold-dk/<tenant>/app."
+    required: true
+  tag:
+    description: New image tag to set.
+    required: true
+  manifest:
+    description: "Single Deployment manifest with an inline image: line (mutually exclusive with manifest-dir)."
+    required: false
+    default: ""
+  manifest-dir:
+    description: Directory of deployment/kustomization manifests carrying the image (mutually exclusive with manifest).
+    required: false
+    default: ""
+  branch:
+    description: Branch to push the deploy commit to.
+    required: false
+    default: main
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      # Inputs reach the script through the environment, never through the script text.
+      env:
+        IN_APP_NAME: ${{ inputs.app-name }}
+        IN_IMAGE_BASE: ${{ inputs.image-base }}
+        IN_TAG: ${{ inputs.tag }}
+        IN_MANIFEST: ${{ inputs.manifest }}
+        IN_MANIFEST_DIR: ${{ inputs.manifest-dir }}
+        IN_BRANCH: ${{ inputs.branch }}
+      run: |
+        set -eu
+        ARGS=""
+        [ -n "$IN_MANIFEST" ] && ARGS="$ARGS --manifest $IN_MANIFEST"
+        [ -n "$IN_MANIFEST_DIR" ] && ARGS="$ARGS --manifest-dir $IN_MANIFEST_DIR"
+        # shellcheck disable=SC2086
+        "${{ github.action_path }}/bump-deploy-tag.sh" \
+          --app-name "$IN_APP_NAME" \
+          --image-base "$IN_IMAGE_BASE" \
+          --tag "$IN_TAG" \
+          --branch "$IN_BRANCH" \
+          $ARGS

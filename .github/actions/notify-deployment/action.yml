@@ -1,0 +1,76 @@
+name: Notify deployment
+description: Post a deployment notification to Slack. No-op when the webhook is absent.
+inputs:
+  app-name:
+    description: Application name.
+    required: true
+  pipeline-name:
+    description: CI workflow / pipeline name.
+    required: false
+    default: GitHub Actions
+  status:
+    description: "Deploy status: succeeded | failed | cancelled."
+    required: false
+    default: succeeded
+  engine:
+    description: "CI/deploy engine label: github-actions | blacksmith | tekton."
+    required: false
+    default: blacksmith
+  environment:
+    description: Deployment environment label.
+    required: false
+    default: cloud
+  run-name:
+    description: Human-readable run name.
+    required: false
+    default: ""
+  run-url:
+    description: Link to the CI run.
+    required: false
+    default: ""
+  commit-sha:
+    description: Source commit SHA.
+    required: false
+    default: ""
+  image-tag:
+    description: Deployed image tag.
+    required: false
+    default: ""
+  argocd-url:
+    description: Argo CD base URL for the application link in the message. No link when empty.
+    required: false
+    default: ""
+  slack-webhook-url:
+    description: Slack incoming-webhook URL. The step no-ops when empty (composite actions cannot read secrets, so the caller passes it explicitly).
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      # Inputs reach the script through the environment, never through the script text:
+      # a value with a quote or a $( in it is data, not shell.
+      env:
+        SLACK_WEBHOOK_URL: ${{ inputs.slack-webhook-url }}
+        IN_APP_NAME: ${{ inputs.app-name }}
+        IN_PIPELINE_NAME: ${{ inputs.pipeline-name }}
+        IN_STATUS: ${{ inputs.status }}
+        IN_ENGINE: ${{ inputs.engine }}
+        IN_ENVIRONMENT: ${{ inputs.environment }}
+        IN_RUN_NAME: ${{ inputs.run-name }}
+        IN_RUN_URL: ${{ inputs.run-url }}
+        IN_COMMIT_SHA: ${{ inputs.commit-sha }}
+        IN_IMAGE_TAG: ${{ inputs.image-tag }}
+        IN_ARGOCD_URL: ${{ inputs.argocd-url }}
+      run: |
+        "${{ github.action_path }}/notify-deployment.sh" \
+          --app-name "$IN_APP_NAME" \
+          --pipeline-name "$IN_PIPELINE_NAME" \
+          --status "$IN_STATUS" \
+          --engine "$IN_ENGINE" \
+          --environment "$IN_ENVIRONMENT" \
+          --run-name "$IN_RUN_NAME" \
+          --run-url "$IN_RUN_URL" \
+          --commit-sha "$IN_COMMIT_SHA" \
+          --image-tag "$IN_IMAGE_TAG" \
+          --argocd-url "$IN_ARGOCD_URL"
