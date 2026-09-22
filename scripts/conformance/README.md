@@ -5,6 +5,12 @@
 The version manifest a set of repositories agrees to. `fields` holds the values;
 `enforcement` says how each one is held to.
 
+Its shape is [`baseline.schema.json`](baseline.schema.json) (JSON Schema 2020-12), with an
+invented [`baseline.example.json`](baseline.example.json). `manifest.bats` holds the example to
+the schema's structure and checks what the schema cannot say: every bucket entry names a key of
+`fields`, and each field sits in exactly one bucket. The schema is not validated by a JSON
+Schema engine in CI; this repository installs none.
+
 | Bucket | Meaning | Fields |
 |---|---|---|
 | `policed` | A file in the consumer must match; the parent POM cannot carry it | `maven.wrapper.version` |

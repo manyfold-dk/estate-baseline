@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Baseline version manifest",
+  "description": "The versions a set of repositories agrees to, and how each is held to. Read by check.sh; see README.md. A check that JSON Schema cannot express -- every enforcement entry names a key of fields, and each field sits in exactly one bucket -- is in manifest.bats.",
+  "type": "object",
+  "required": ["baselineVersion", "fields", "enforcement"],
+  "additionalProperties": false,
+  "properties": {
+    "baselineVersion": {
+      "description": "The manifest's own release number. A deviation ADR names it in deviation-from.",
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "fields": {
+      "description": "Dotted field name to agreed value. Every value is a string, a number included.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$" },
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "enforcement": {
+      "type": "object",
+      "required": ["policed", "inherited", "informational", "rules"],
+      "additionalProperties": false,
+      "properties": {
+        "policed": {
+          "description": "A file in the consumer must match; the build parent cannot carry the value.",
+          "$ref": "#/$defs/fieldList"
+        },
+        "inherited": {
+          "description": "The build parent carries the value; a consumer POM that contradicts it is drift.",
+          "$ref": "#/$defs/fieldList"
+        },
+        "informational": {
+          "description": "Published for people and CI images; not checked.",
+          "$ref": "#/$defs/fieldList"
+        },
+        "rules": {
+          "description": "Structural checks that need no value. Each id doubles as a deviation ADR's field.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "workflow.action-pinning",
+              "workflow.permissions",
+              "manifest.image-digest",
+              "manifest.pvc-backup-annotation"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "fieldList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string" }
+    }
+  }
+}
