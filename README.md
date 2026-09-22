@@ -16,7 +16,7 @@ hand it over. Each tool here catches one of those, and each one fails CI rather 
 | [`scripts/docs`](scripts/docs/generate-adr-index.sh) | An ADR index that was typed by hand. The table in `docs/adr/README.md` is generated from the ADR files; `--check` fails when it differs. | `generate-adr-index.sh <repo> [--check]` |
 | [`tools/plan-portfolio`](tools/plan-portfolio/generate.py) | Plans scattered across repositories. One portfolio page and one page per repository, rendered from the plans' front matter; `--check` fails on drift and writes nothing. | `generate.py [--check]` |
 | [`scripts/publish-check`](scripts/publish-check/publish-check.sh) | A value on its way into a public repository: a name from your private list, an address, an internal host, an exact version, a path into a private repository, or anything two secret scanners flag. Exit 1 with file and line; scanner values are never printed. `--names none` runs the shapes only. | `publish-check.sh <dir> --names FILE\|none [--allow FILE]` |
-| [`baseline-agent/skills/agent-mailbox`](baseline-agent/skills/agent-mailbox/SKILL.md) | Two coding agents that cannot message each other. `ambx` is a file-based mailbox with an audit trail; the skill file tells an agent when to use it and what it may not do with it. | `ambx <command>` |
+| [`baseline-agent/skills/agent-mailbox`](baseline-agent/skills/agent-mailbox/SKILL.md) | Two coding agents that cannot message each other. `ambx` is a file-based mailbox with an audit trail; the skill file tells an agent when to use it and what it may not do with it. [Design](docs/design/agent-mailbox.md): locking, atomic delivery, a repairable outbox, and why identities are not authenticated. | `ambx <command>` |
 
 ## Principles
 
