@@ -32,13 +32,13 @@ setup, the node operating system and the platform's recovery limitations stay pr
   - [Check value paths against the chart](#check-value-paths-against-the-chart)
 - [GitHub Packages](#github-packages)
   - [Actions and Packages share one storage bucket](#actions-and-packages-share-one-storage-bucket)
-  - [A zero spending limit blocks at 100 percent](#a-zero-spending-limit-blocks-at-100-percent)
+  - [A zero spending limit can block private packages](#a-zero-spending-limit-can-block-private-packages)
   - [The storage meter is cumulative](#the-storage-meter-is-cumulative)
   - [A cleanup token needs org-wide package visibility](#a-cleanup-token-needs-org-wide-package-visibility)
   - [Retention logs count candidates after the cut-off](#retention-logs-count-candidates-after-the-cut-off)
 - [API design](#api-design)
   - [Bound every string field](#bound-every-string-field)
-  - [Sanitize metric labels to control cardinality](#sanitize-metric-labels-to-control-cardinality)
+  - [Bound metric labels to a finite set](#bound-metric-labels-to-a-finite-set)
 
 ## Supply chain
 
@@ -307,7 +307,8 @@ a key.
 
 ### Actions and Packages share one storage bucket
 
-On the Free plan the included storage is shared between Actions artifacts and package storage;
+On the Free plan the included storage is shared between Actions artifacts and metered package
+storage (private packages; see the next section for container images);
 the billing page shows one "Actions and Packages storage" bar. Packages can be the small share.
 Deleting images barely moves the bar when artifacts are the real consumer, so check both:
 
@@ -321,12 +322,20 @@ gh api repos/<owner>/<repository>/actions/artifacts \
   --jq '[.artifacts[]|select(.expired==false).size_in_bytes]|add'
 ```
 
-### A zero spending limit blocks at 100 percent
+### A zero spending limit can block private packages
 
-On the Free plan the default spending limit is zero. The moment usage passes the included tier,
-GitHub blocks every package push and pull: `ImagePullBackOff` in the cluster, failed image
-pushes in CI. A small limit lets the overage be billed instead of blocked; overage for a small
-estate costs cents.
+Observed on an organisation on the Free plan whose container images were all private: when
+"Actions and Packages storage" passed the included tier, the default spending limit of zero
+blocked package operations. Image pushes failed in CI, the cluster reported `ImagePullBackOff`,
+and the billing page said the spending limit was reached. A small spending limit unblocked it;
+the overage cost cents.
+
+This is not a rule for every image. GitHub's
+[Packages billing](https://docs.github.com/en/billing/concepts/product-billing/github-packages)
+lists Container registry storage and bandwidth as free, and public packages are free in every
+registry, so an estate with public images should not see this. For `ImagePullBackOff` rule out
+the usual causes first -- a wrong reference, a missing pull secret, an expired token -- and
+look at billing only for private packages on a plan with a zero limit.
 
 ### The storage meter is cumulative
 
@@ -372,24 +381,46 @@ public record WebVitalEntry(
 | Full URLs | 2048 | The common browser limit |
 | Free text | 1024 and up | Depends on the use |
 
-### Sanitize metric labels to control cardinality
+### Bound metric labels to a finite set
 
 **Problem:** Raw user input as a Prometheus label creates a new series per value, until
-Prometheus runs out of memory.
+Prometheus runs out of memory. Normalizing is not enough: stripping query strings and replacing
+ids still leaves one label per distinct alphabetic path, and a client can send as many as it
+likes.
 
-**Rule:** Normalize before recording:
+**Rule:** Map every label value onto a finite set, with one fallback for everything else. Where
+the server matched the request, use the router's own template (the `@Path` pattern, not the
+request path). Where the client reports the route, as a browser telemetry beacon does, check it
+against an allow-list:
 
 ```java
-private String sanitizeRoute(String route) {
-    if (route == null || route.isBlank()) {
-        return "unknown";
+private static final Set<String> ROUTES = Set.of("/", "/items", "/items/:id", "/account");
+
+private String routeLabel(String route) {
+    if (route == null) {
+        return "other";
     }
-    String sanitized = route.split("\\?")[0].split("#")[0];
-    return sanitized
-        .replaceAll("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", ":uuid")
-        .replaceAll("/\\d+", "/:id");
+    int end = route.length();
+    for (char delimiter : new char[] {'?', '#'}) {
+        int i = route.indexOf(delimiter);
+        if (i >= 0 && i < end) {
+            end = i;
+        }
+    }
+    String path = route.substring(0, end)
+        .replaceAll("/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?=/|$)", "/:id")
+        .replaceAll("/\\d+(?=/|$)", "/:id");
+    return ROUTES.contains(path) ? path : "other";
 }
 ```
 
+The label can take `ROUTES.size() + 1` values, whatever arrives. `substring` by index, not
+`split(...)[0]`: Java's `split` drops trailing empty strings, so `"?".split("\\?")` is an empty
+array and indexing it throws.
+
+**Verification:** Test the boundaries -- `"?"`, `"#"`, `""`, an unknown path -- each maps to
+`"other"` without an exception. Feed thousands of random paths and assert the number of distinct
+labels is at most `ROUTES.size() + 1`.
+
 The usual sources of cardinality: query strings, fragments, UUIDs and numeric ids in paths,
-timestamps, session tokens.
+timestamps, session tokens, and any path a client can invent.
