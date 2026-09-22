@@ -28,13 +28,19 @@ parent omits loses it without a warning.
 App-specific test configuration, such as running `*IT` classes under Surefire, stays in the
 application.
 
-## Resolving the parent needs settings.xml, not only a server entry
+## Where the parent's repository is declared
 
-Maven resolves the parent POM before it reads the project's own `<repositories>`. A repository
-declared in the application's POM is therefore too late for the parent. The repository has to
-come from an active profile in `settings.xml`, next to a `<server>` entry with the same id.
+Maven resolves the parent from the repositories it knows before the parent is loaded: those in
+the application's own POM and those in an active `settings.xml` profile. Either works. What
+cannot work is a repository declared only in the parent: Maven would have to fetch the parent
+to learn where the parent is. A `<server>` entry alone is not enough either; it carries the
+credentials for an id, not a URL. The URL comes from the POM or a settings profile, under the
+same id as the server.
 
-Two layouts, both supported by the reusable [Quarkus workflows](../.github/workflows/README.md#quarkus-caller-contract):
+The reusable [Quarkus workflows](../.github/workflows/README.md#quarkus-caller-contract) support
+two layouts, both with the repository in settings. They are conventions, not the only working
+setup: a repository in the application's `<repositories>`, with a matching `<server>` in
+settings, resolves the parent too.
 
 - **Committed settings.** `.mvn/settings.xml` in the module, activated by `-s .mvn/settings.xml`
   in `.mvn/maven.config`, with the password read from the environment

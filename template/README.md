@@ -11,7 +11,7 @@ Copy the directory, then work through the first steps.
 | `.github/workflows/ci.yml` | Pull request: verify and validate manifests. `main`: verify, build and push the image, pin it by tag and digest in `gitops/prod/app/deployment.yaml`. All on the [shared workflows](../.github/workflows/README.md). |
 | `.github/workflows/secret-scan.yml` | `gitleaks` over every pull request and push to `main`. |
 | `.github/renovate.json` | Extends this repository's Renovate preset. |
-| `apps/app/.mvn/{settings.xml,maven.config}` | Committed Maven settings: the build parent resolves from an authenticated registry, the token from `MAVEN_REGISTRY_TOKEN` ([why](../docs/maven-conventions.md#resolving-the-parent-needs-settingsxml-not-only-a-server-entry)). |
+| `apps/app/.mvn/{settings.xml,maven.config}` | Committed Maven settings: the build parent resolves from an authenticated registry, the token from `MAVEN_REGISTRY_TOKEN` ([why](../docs/maven-conventions.md#where-the-parents-repository-is-declared)). |
 | `gitops/prod/kustomization.yaml` | The Argo CD entry point; starts empty and must always build. |
 | `gitops/prod/postgres-statefulset.example.yaml` | A copy-rename database example, StatefulSet and headless Service: restricted Pod Security, non-root, digest-pinned image, opt-in file-system backup with a `pg_dump` hook that fails the backup when the dump fails. |
 | `docs/adr/0000-template.md` | Decision record template. |
