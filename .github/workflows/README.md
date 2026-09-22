@@ -21,7 +21,7 @@ Under `.github/actions/`. Logic lives in checked-in, `bats`-tested shell scripts
 | Action | Purpose | Key inputs |
 |---|---|---|
 | `secret-scan` | Install a checksum-verified `gitleaks` and scan the event's commit range, values redacted. Needs a `fetch-depth: 0` checkout. Bump `gitleaks-version` and both sha256 defaults together. | `full-history` |
-| `bump-deploy-tag` | Update a GitOps image tag, commit, push with rebase-retry. Runs in the caller's checkout with the caller's credentials. Exactly one of `manifest` (one Deployment file) or `manifest-dir` (a directory of manifests). | `app-name`, `image-base`, `tag`, `manifest` \| `manifest-dir`, `branch` |
+| `bump-deploy-tag` | Update a GitOps image tag, commit, push with rebase-retry. Runs in the caller's checkout with the caller's credentials. Exactly one of `manifest` (one Deployment file) or `manifest-dir` (a directory of manifests). `digest` pins the image as `<tag>@sha256:...`; `manifest` only. | `app-name`, `image-base`, `tag`, `digest`, `manifest` \| `manifest-dir`, `branch` |
 | `read-ci-engine-switch` | Read and validate a `CI_MODE` / `DEPLOY_ENGINE` switch file; emit run and deploy gating outputs. | `env-file`, `name`, `force-run`, `force-deploy` |
 | `notify-deployment` | Post a Slack deploy notification; no-op when the webhook is empty. | `app-name`, `status`, `image-tag`, `argocd-url`, `slack-webhook-url` |
 | `setup-maven-registry` | Write `~/.m2/settings.xml` with one authenticated repository in an active profile, so a parent POM resolves from it. Mode 0600, values XML-escaped, token never printed. | `repository-url`, `username`, `token`, `server-id` |
