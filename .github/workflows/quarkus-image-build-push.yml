@@ -17,7 +17,10 @@ name: Quarkus image build & push (reusable)
 # activated from `.mvn/maven.config` (it reads the token from the environment), and a module
 # with no settings, for which `maven-repository-url` makes the workflow write one. The image
 # build receives the token as the BuildKit secret `gh_token`, never as a build argument, so
-# it never lands in a layer or in provenance.
+# it never lands in a layer or in provenance. A committed settings.xml reads
+# MAVEN_REGISTRY_TOKEN, so the Dockerfile exposes the secret under that name:
+#   RUN --mount=type=secret,id=gh_token,env=MAVEN_REGISTRY_TOKEN ./mvnw -B package
+# (`env=` needs Dockerfile frontend 1.10 or later).
 #
 # Minimal caller (pin by full commit id):
 #   jobs:
@@ -96,6 +99,11 @@ on:
       image-tag:
         description: The computed image tag (main-<short-sha>).
         value: ${{ jobs.verify.outputs.image_tag }}
+      image-digest:
+        description: >-
+          Digest of the pushed image (sha256:<hex>); empty when no image was pushed. Pass it
+          to bump-deploy-tag with the tag so the Deployment pins the image by content.
+        value: ${{ jobs.image.outputs.digest }}
 
 permissions:
   contents: read
@@ -168,6 +176,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.push-github.outputs.digest || steps.push-blacksmith.outputs.digest }}
     steps:
       - name: Checkout (github engine)
         if: inputs.engine == 'github'
@@ -191,6 +201,7 @@ jobs:
         if: inputs.engine == 'blacksmith'
         uses: useblacksmith/setup-docker-builder@ab5c1da94f53f5cd75c1038092aa276dddfccbba # v1
       - name: Build and push (github engine)
+        id: push-github
         if: inputs.engine == 'github'
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
@@ -204,6 +215,7 @@ jobs:
           secrets: |
             gh_token=${{ secrets.maven-token || github.token }}
       - name: Build and push (blacksmith engine)
+        id: push-blacksmith
         if: inputs.engine == 'blacksmith'
         uses: useblacksmith/build-push-action@fb9e3e6a9299c78462bfadd0d93352c316adc9b8 # v2
         with:

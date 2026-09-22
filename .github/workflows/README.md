@@ -51,9 +51,15 @@ Under `.github/actions/`. Logic lives in checked-in, `bats`-tested shell scripts
   repository's packages. A committed settings file reads it as `MAVEN_REGISTRY_TOKEN` or
   `GITHUB_PERSONAL_ACCESS_TOKEN`.
 - **Image.** `image-base` (required), `dockerfile`, `build-args`, `registry-cache`. The
-  Dockerfile receives the token as the BuildKit secret `gh_token`
-  (`RUN --mount=type=secret,id=gh_token ...`). The image job runs only on `refs/heads/main`
-  and needs `packages: write` from the caller.
+  Dockerfile receives the token as the BuildKit secret `gh_token`. A committed settings file
+  reads `MAVEN_REGISTRY_TOKEN` from the environment, not the secret file, so mount the secret
+  under that name: `RUN --mount=type=secret,id=gh_token,env=MAVEN_REGISTRY_TOKEN ./mvnw -B
+  package` (Dockerfile frontend 1.10 or later). Without `env=` the build parent resolves
+  with no password and fails with 401. The image job runs only on `refs/heads/main` and
+  needs `packages: write` from the caller.
+- **Outputs.** `image-tag` (`main-<short-sha>`) and `image-digest` (`sha256:...` of the pushed
+  image). Pass both to `bump-deploy-tag` (`tag`, `digest`) so the Deployment is
+  digest-pinned, as `manifest.image-digest` requires.
 - **Engine.** `engine: blacksmith` with `runner-verify` and `runner-image` set to Blacksmith
   labels; the default `github` needs nothing.
 - **Caller-side.** Frontend jobs, the GitOps tag bump (`bump-deploy-tag`) and smoke tests.

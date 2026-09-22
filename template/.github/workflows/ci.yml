@@ -1,7 +1,8 @@
 name: CI
 
 # Pull requests: verify and validate the manifests. main: verify, build and push the image,
-# then bump the GitOps deploy tag in this repository.
+# then pin the new image by tag and digest in gitops/prod/app/deployment.yaml. That file must
+# exist before the first push to main (see the scaffold README's first steps).
 #
 # Pin every baseline reference to a full commit id (replace each <sha>). The conformance
 # checker fails an unpinned uses:.
@@ -16,6 +17,12 @@ on:
 
 permissions:
   contents: read
+
+# One run per ref. A newer push to main cancels the older run, so an older build can never
+# finish last and overwrite the newer deploy tag.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
@@ -69,4 +76,5 @@ jobs:
           app-name: app
           image-base: ghcr.io/<owner>/<repository>/app
           tag: ${{ needs.build-push.outputs['image-tag'] }}
+          digest: ${{ needs.build-push.outputs['image-digest'] }}
           manifest: gitops/prod/app/deployment.yaml
