@@ -1,0 +1,29 @@
+name: Set up a Maven registry
+description: Write ~/.m2/settings.xml with one authenticated repository and an active profile, so a parent POM resolves from it.
+inputs:
+  repository-url:
+    description: https:// URL of the Maven repository, e.g. https://maven.pkg.github.com/<owner>/<repository>.
+    required: true
+  username:
+    description: User name for the repository. For GitHub Packages, the actor.
+    required: true
+  token:
+    description: Token with read access to the repository. For GitHub Packages, a token with read:packages.
+    required: true
+  server-id:
+    description: Id shared by the <server> and <repository> entries. Must match the id in any distributionManagement you deploy with.
+    required: false
+    default: github
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      # Inputs reach the script through the environment, never through the script text.
+      env:
+        IN_URL: ${{ inputs.repository-url }}
+        IN_USERNAME: ${{ inputs.username }}
+        IN_SERVER_ID: ${{ inputs.server-id }}
+        MAVEN_REGISTRY_TOKEN: ${{ inputs.token }}
+      run: |
+        "${{ github.action_path }}/setup-maven-registry.sh" \
+          --url "$IN_URL" --username "$IN_USERNAME" --server-id "$IN_SERVER_ID"
