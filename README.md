@@ -86,6 +86,11 @@ CI runs exactly these on every push and pull request.
 [`docs/adr/`](docs/adr/README.md) records the decisions behind this repository, starting with
 the rule that decides what is published here and what is not.
 
+## Best practices
+
+[`docs/best-practices.md`](docs/best-practices.md): the lessons behind several of these checks,
+from digest pinning and checksum verification to Argo CD drift and metric cardinality.
+
 ## Licence
 
 Apache-2.0. See [`LICENSE`](LICENSE).
