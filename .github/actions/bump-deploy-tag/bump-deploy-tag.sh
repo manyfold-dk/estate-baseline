@@ -4,7 +4,8 @@
 # Two mutually exclusive manifest flavours:
 #   --manifest FILE       single Deployment manifest; replaces only the tag on the
 #                         `image: <image-base>:<tag>` line, preserving any trailing
-#                         comment (the tenant flavour).
+#                         comment (the tenant flavour). With --digest the line
+#                         becomes `<image-base>:<tag>@sha256:<digest>`.
 #   --manifest-dir DIR    a directory whose deployment.yaml / backend-deployment.yaml
 #                         and/or kustomization.yaml carry the image (the platform
 #                         flavour).
@@ -13,11 +14,16 @@
 # (the deploy commit stays caller-side, never in the baseline). Rebase-retry
 # up to 3x; after a reset, a clean diff means the remote already carries the tag
 # (success, not failure).
+#
+# --digest pins the image by content as well as by tag, which the conformance rule
+# manifest.image-digest requires of a workload. Single-manifest flavour only: the
+# directory flavour also rewrites kustomization newTag entries, which carry no digest.
 set -eu
 
 APP_NAME=""
 IMAGE_BASE=""
 TAG=""
+DIGEST=""
 MANIFEST=""
 MANIFEST_DIR=""
 BRANCH="main"
@@ -26,7 +32,7 @@ usage() {
   cat <<'EOF'
 Usage:
   bump-deploy-tag.sh --app-name APP --image-base REPO --tag TAG \
-    ( --manifest FILE | --manifest-dir DIR ) [--branch main]
+    ( --manifest FILE [--digest sha256:HEX] | --manifest-dir DIR ) [--branch main]
 EOF
 }
 
@@ -50,6 +56,11 @@ while [ $# -gt 0 ]; do
     --tag)
       [ $# -ge 2 ] || die "--tag requires an argument"
       TAG="$2"
+      shift 2
+      ;;
+    --digest)
+      [ $# -ge 2 ] || die "--digest requires an argument"
+      DIGEST="$2"
       shift 2
       ;;
     --manifest)
@@ -92,6 +103,15 @@ case "${TAG}" in
   *[!A-Za-z0-9._-]*) die "invalid tag '${TAG}': only A-Z a-z 0-9 . _ - are allowed" ;;
 esac
 
+if [ -n "${DIGEST}" ]; then
+  printf '%s\n' "${DIGEST}" | grep -qE '^sha256:[0-9a-f]{64}$' \
+    || die "invalid digest '${DIGEST}': expected sha256:<64 lowercase hex>"
+  [ -z "${MANIFEST_DIR}" ] || die "--digest needs --manifest; the directory flavour cannot carry a digest"
+  REF="${TAG}@${DIGEST}"
+else
+  REF="${TAG}"
+fi
+
 [ -n "${GITHUB_ACTIONS:-}" ] || die "bump-deploy-tag is intended for GitHub Actions only"
 
 if [ -n "${MANIFEST}" ]; then
@@ -107,7 +127,7 @@ fi
 # Writes via a temp file (portable across GNU/BSD sed; avoids the sed -i flag split).
 update_file() {
   _uf_tmp=$(mktemp)
-  sed -E "s#(image:[[:space:]]*${IMAGE_BASE}):[^[:space:]]+#\1:${TAG}#" "$1" > "${_uf_tmp}"
+  sed -E "s#(image:[[:space:]]*${IMAGE_BASE}):[^[:space:]]+#\1:${REF}#" "$1" > "${_uf_tmp}"
   mv "${_uf_tmp}" "$1"
 }
 
@@ -196,7 +216,7 @@ update_tag() {
 update_tag
 
 if git diff --quiet -- "${CHANGE_PATH}"; then
-  echo "Manifest already at ${TAG} -- nothing to commit."
+  echo "Manifest already at ${REF} -- nothing to commit."
   exit 0
 fi
 

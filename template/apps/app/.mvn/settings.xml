@@ -1,0 +1,29 @@
+<settings>
+    <!-- Resolves the build parent from an authenticated registry. The repository sits in an
+         active profile so the POM carries no registry URL; a repository in the POM's own
+         <repositories> would resolve the parent as well. It must not live only in the parent.
+         Local: export MAVEN_REGISTRY_TOKEN=<token with read access to packages>.
+         CI sets the same variable from the maven-token secret. -->
+    <servers>
+        <server>
+            <id>github</id>
+            <!-- any value works with a token -->
+            <username>token</username>
+            <password>${env.MAVEN_REGISTRY_TOKEN}</password>
+        </server>
+    </servers>
+    <profiles>
+        <profile>
+            <id>github-registry</id>
+            <repositories>
+                <repository>
+                    <id>github</id>
+                    <url>https://maven.pkg.github.com/&lt;owner&gt;/&lt;repository&gt;</url>
+                </repository>
+            </repositories>
+        </profile>
+    </profiles>
+    <activeProfiles>
+        <activeProfile>github-registry</activeProfile>
+    </activeProfiles>
+</settings>

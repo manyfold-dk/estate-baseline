@@ -96,6 +96,39 @@ origin_image_tag() {
   [ "$(origin_image_tag)" = "winner" ]
 }
 
+@test "digest: the line becomes tag@digest, trailing comment preserved" {
+  d="sha256:$(printf 'a%.0s' $(seq 64))"
+  run "$SCRIPT" --app-name app --image-base "$IMAGE" --tag new3 --digest "$d" --manifest gitops/prod/deployment.yaml
+  [ "$status" -eq 0 ]
+  [ "$(origin_image_tag)" = "new3@$d" ]
+  grep -q "image: ${IMAGE}:new3@$d  # pinned at release" gitops/prod/deployment.yaml
+}
+
+@test "digest: an existing digest is replaced, not appended to" {
+  d1="sha256:$(printf 'a%.0s' $(seq 64))"
+  d2="sha256:$(printf 'b%.0s' $(seq 64))"
+  "$SCRIPT" --app-name app --image-base "$IMAGE" --tag one --digest "$d1" --manifest gitops/prod/deployment.yaml
+  run "$SCRIPT" --app-name app --image-base "$IMAGE" --tag two --digest "$d2" --manifest gitops/prod/deployment.yaml
+  [ "$status" -eq 0 ]
+  [ "$(origin_image_tag)" = "two@$d2" ]
+}
+
+@test "digest: a malformed digest is rejected before anything is written" {
+  before="$(git rev-parse HEAD)"
+  run "$SCRIPT" --app-name app --image-base "$IMAGE" --tag x --digest "sha256:abc" --manifest gitops/prod/deployment.yaml
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid digest"* ]]
+  [ "$(git rev-parse HEAD)" = "$before" ]
+  git diff --quiet
+}
+
+@test "digest: refused with the directory flavour" {
+  d="sha256:$(printf 'a%.0s' $(seq 64))"
+  run "$SCRIPT" --app-name app --image-base "$IMAGE" --tag x --digest "$d" --manifest-dir gitops/prod
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"--digest needs --manifest"* ]]
+}
+
 @test "manifest-dir flavour updates the deployment in the directory" {
   run "$SCRIPT" --app-name app --image-base "$IMAGE" --tag dirtag --manifest-dir gitops/prod
   [ "$status" -eq 0 ]

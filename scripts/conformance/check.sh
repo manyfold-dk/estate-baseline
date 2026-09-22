@@ -22,6 +22,13 @@ has_deviation() {
   return 1
 }
 
+# The agreed value of field $1. A manifest without it is a broken input, not drift: without
+# this, jq would print "null" and every consumer would drift against it.
+want_of() {
+  jq -er --arg f "$1" '.fields[$f] | strings' "$baseline" \
+    || { echo "ERROR: $baseline has no string fields[\"$1\"]; the checker compares it" >&2; exit 2; }
+}
+
 report() {  # field, got, want, where
   has_deviation "$1" && return 0
   echo "DRIFT: $1 = $2 (baseline $3) in $4"
@@ -29,7 +36,7 @@ report() {  # field, got, want, where
 }
 
 # --- maven.compiler.release (one per pom; inherited from the parent once repointed) ---
-want="$(jq -r '.fields["maven.compiler.release"]' "$baseline")"
+want="$(want_of maven.compiler.release)"
 while IFS= read -r pom; do
   # `|| true`: a pom that does NOT declare the property (the normal case once it inherits
   # from the parent) makes grep exit non-zero; without this, set -euo pipefail would abort.
@@ -39,7 +46,7 @@ while IFS= read -r pom; do
 done < <(find "$consumer" -name pom.xml -not -path '*/target/*')
 
 # --- maven.wrapper.version (NOT inheritable -- must be policed here) ---
-want="$(jq -r '.fields["maven.wrapper.version"]' "$baseline")"
+want="$(want_of maven.wrapper.version)"
 while IFS= read -r props; do
   got="$(grep -oE 'apache-maven-[0-9.]+-bin' "$props" | head -1 | sed -E 's/apache-maven-([0-9.]+)-bin/\1/' || true)"
   [ -z "$got" ] && continue

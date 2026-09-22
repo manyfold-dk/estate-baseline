@@ -6,6 +6,9 @@ repository path	docs/adr/
 repository path	docs/specs/
 repository path	docs/runbooks/
 repository path	apps/example-app/
+repository path	docs/design/
+# the scaffold's placeholder module directory
+repository path	apps/app/
 # invented test versions (conformance fixture, agent stamp)
 exact version	9.9.1
 exact version	9.9.0

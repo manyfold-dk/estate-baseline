@@ -1,0 +1,80 @@
+name: Quarkus build (reusable)
+
+# Pull-request verify for a Maven module: `mvn verify`, nothing published. The push-to-main
+# half, with the image, is quarkus-image-build-push.yml.
+#
+# Minimal caller (pin by full commit id):
+#   jobs:
+#     verify:
+#       uses: manyfold-dk/estate-baseline/.github/workflows/quarkus-build.yml@<sha>
+#       with:
+#         working-directory: apps/app
+#         java-version: "<major>"
+#         maven-repository-url: https://maven.pkg.github.com/<owner>/<repository>   # optional
+#       secrets:
+#         maven-token: ${{ secrets.MAVEN_TOKEN }}                                    # optional
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Path to the Maven module to build.
+        type: string
+        required: true
+      java-version:
+        description: Temurin JDK major version.
+        type: string
+        required: true
+      maven-repository-url:
+        description: >-
+          https:// URL of an authenticated Maven repository to resolve from, a parent POM
+          included. Empty: no settings.xml is written and Maven uses its defaults.
+        type: string
+        default: ""
+      maven-server-id:
+        description: Server id for that repository; must match the id a committed settings.xml or distributionManagement uses.
+        type: string
+        default: github
+    secrets:
+      maven-token:
+        description: >-
+          Token with read access to the Maven repository. Optional: falls back to the job's
+          GITHUB_TOKEN, which can read packages of the calling repository only.
+        required: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java-version }}
+          cache: maven
+      # A reusable workflow resolves its action references in this repository, so the
+      # action is pinned by commit id like any other.
+      - name: Set up Maven registry
+        if: inputs.maven-repository-url != ''
+        uses: manyfold-dk/estate-baseline/.github/actions/setup-maven-registry@49ba3ac26fb8895e07e58817239ac990f1d1afd4 # unreleased
+        with:
+          repository-url: ${{ inputs.maven-repository-url }}
+          server-id: ${{ inputs.maven-server-id }}
+          username: ${{ github.actor }}
+          token: ${{ secrets.maven-token || github.token }}
+      - name: Build and test
+        working-directory: ${{ inputs.working-directory }}
+        # A module that commits its own .mvn/settings.xml (activated from .mvn/maven.config)
+        # reads the token from the environment; both names are set.
+        env:
+          MAVEN_REGISTRY_TOKEN: ${{ secrets.maven-token || github.token }}
+          GITHUB_PERSONAL_ACCESS_TOKEN: ${{ secrets.maven-token || github.token }}
+        run: |
+          # Wrapper-robust: some modules ship mvnw, others do not.
+          if [ -x ./mvnw ]; then ./mvnw -B verify; else mvn -B verify; fi

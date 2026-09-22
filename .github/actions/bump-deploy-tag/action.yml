@@ -10,6 +10,10 @@ inputs:
   tag:
     description: New image tag to set.
     required: true
+  digest:
+    description: "Optional image digest (sha256:<hex>) written after the tag, as <tag>@<digest>. Needs manifest, not manifest-dir."
+    required: false
+    default: ""
   manifest:
     description: "Single Deployment manifest with an inline image: line (mutually exclusive with manifest-dir)."
     required: false
@@ -31,12 +35,14 @@ runs:
         IN_APP_NAME: ${{ inputs.app-name }}
         IN_IMAGE_BASE: ${{ inputs.image-base }}
         IN_TAG: ${{ inputs.tag }}
+        IN_DIGEST: ${{ inputs.digest }}
         IN_MANIFEST: ${{ inputs.manifest }}
         IN_MANIFEST_DIR: ${{ inputs.manifest-dir }}
         IN_BRANCH: ${{ inputs.branch }}
       run: |
         set -eu
         ARGS=""
+        [ -n "$IN_DIGEST" ] && ARGS="$ARGS --digest $IN_DIGEST"
         [ -n "$IN_MANIFEST" ] && ARGS="$ARGS --manifest $IN_MANIFEST"
         [ -n "$IN_MANIFEST_DIR" ] && ARGS="$ARGS --manifest-dir $IN_MANIFEST_DIR"
         # shellcheck disable=SC2086

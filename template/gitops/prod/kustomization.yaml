@@ -1,0 +1,6 @@
+# GitOps entry point: Argo CD syncs this directory. Add manifests to resources: as you create
+# them. *.example.yaml files are deliberately not listed; they are copy-rename starting points.
+# The manifest-validate job runs `kustomize build` here, so this directory must always build.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources: []

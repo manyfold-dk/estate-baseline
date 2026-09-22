@@ -1,0 +1,24 @@
+{
+  "baselineVersion": "0.0.1",
+  "fields": {
+    "maven.compiler.release": "99",
+    "quarkus.platform.version": "9.9.1",
+    "surefire.plugin.version": "9.9.0",
+    "maven.wrapper.version": "9.9.1",
+    "build.jdk.image": "registry.example.test/build-jdk:99",
+    "runtime.jre.image": "registry.example.test/runtime-jre:99",
+    "node.version": "99",
+    "pnpm.version": "99"
+  },
+  "enforcement": {
+    "policed": ["maven.wrapper.version"],
+    "inherited": ["maven.compiler.release", "quarkus.platform.version", "surefire.plugin.version"],
+    "informational": ["build.jdk.image", "runtime.jre.image", "node.version", "pnpm.version"],
+    "rules": [
+      "workflow.action-pinning",
+      "workflow.permissions",
+      "manifest.image-digest",
+      "manifest.pvc-backup-annotation"
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["github>manyfold-dk/estate-baseline//renovate/default.json"]
+}

@@ -1,0 +1,80 @@
+name: CI
+
+# Pull requests: verify and validate the manifests. main: verify, build and push the image,
+# then pin the new image by tag and digest in gitops/prod/app/deployment.yaml. That file must
+# exist before the first push to main (see the scaffold README's first steps).
+#
+# Pin every baseline reference to a full commit id (replace each <sha>). The conformance
+# checker fails an unpinned uses:.
+
+on:
+  push:
+    branches: [main]
+    # The deploy job's own [skip ci] commit touches gitops/ and must not start CI again.
+    paths-ignore: [gitops/**]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# One run per ref. A newer push to main cancels the older run, so an older build can never
+# finish last and overwrite the newer deploy tag.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      packages: read
+    uses: manyfold-dk/estate-baseline/.github/workflows/quarkus-build.yml@<sha>
+    with:
+      working-directory: apps/app
+      java-version: "<major>"
+    secrets:
+      maven-token: ${{ secrets.MAVEN_TOKEN }}
+
+  validate-manifests:
+    if: github.event_name == 'pull_request'
+    uses: manyfold-dk/estate-baseline/.github/workflows/manifest-validate.yml@<sha>
+    with:
+      kustomize-dir: gitops/prod
+
+  build-push:
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    uses: manyfold-dk/estate-baseline/.github/workflows/quarkus-image-build-push.yml@<sha>
+    with:
+      working-directory: apps/app
+      image-base: ghcr.io/<owner>/<repository>/app
+      java-version: "<major>"
+      # Blacksmith runners: uncomment and set your runner labels.
+      # engine: blacksmith
+      # runner-verify: <blacksmith-runner-label>
+      # runner-image: <blacksmith-runner-label>
+    secrets:
+      maven-token: ${{ secrets.MAVEN_TOKEN }}
+
+  deploy:
+    name: Bump deploy tag
+    runs-on: ubuntu-latest
+    needs: build-push
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: main
+      - uses: manyfold-dk/estate-baseline/.github/actions/bump-deploy-tag@<sha>
+        with:
+          app-name: app
+          image-base: ghcr.io/<owner>/<repository>/app
+          tag: ${{ needs.build-push.outputs['image-tag'] }}
+          digest: ${{ needs.build-push.outputs['image-digest'] }}
+          manifest: gitops/prod/app/deployment.yaml

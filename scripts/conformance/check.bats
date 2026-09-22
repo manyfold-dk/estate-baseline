@@ -28,6 +28,14 @@ wrapper() {
   [ "$status" -eq 0 ]
 }
 
+@test "a manifest without a field the checker compares is a tooling error, not drift" {
+  pom 25
+  printf '{"fields":{"maven.wrapper.version":"9.9.1"}}' > "$BASELINE"
+  run "$BATS_TEST_DIRNAME/check.sh" "$TMP" "$BASELINE"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *'fields["maven.compiler.release"]'* ]]
+}
+
 @test "compiler-release drift fails and names the field" {
   pom 21
   run "$BATS_TEST_DIRNAME/check.sh" "$TMP" "$BASELINE"
