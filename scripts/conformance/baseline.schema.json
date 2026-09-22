@@ -12,9 +12,9 @@
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
     },
     "fields": {
-      "description": "Dotted field name to agreed value. Every value is a string, a number included.",
+      "description": "Dotted field name to agreed value. Every value is a string, a number included. The two required fields are the ones check.sh compares; it stops with a tooling error without them.",
       "type": "object",
-      "minProperties": 1,
+      "required": ["maven.compiler.release", "maven.wrapper.version"],
       "propertyNames": { "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$" },
       "additionalProperties": { "type": "string", "minLength": 1 }
     },
@@ -24,11 +24,11 @@
       "additionalProperties": false,
       "properties": {
         "policed": {
-          "description": "A file in the consumer must match; the build parent cannot carry the value.",
+          "description": "A file in the consumer must match; the build parent cannot carry the value. check.sh compares maven.wrapper.version only; another entry here states intent and is not checked.",
           "$ref": "#/$defs/fieldList"
         },
         "inherited": {
-          "description": "The build parent carries the value; a consumer POM that contradicts it is drift.",
+          "description": "The build parent carries the value; a consumer POM that contradicts it is drift. check.sh compares maven.compiler.release only; the build parent enforces the rest by inheritance, and no check reads them.",
           "$ref": "#/$defs/fieldList"
         },
         "informational": {

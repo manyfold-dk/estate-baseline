@@ -12,6 +12,20 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "the example carries every field the schema requires, the ones the checker reads" {
+  run jq -e --slurpfile s "$SCHEMA" \
+    '(.fields | keys) as $k | $s[0].properties.fields.required | all(. as $f | $k | index($f))' "$EXAMPLE"
+  [ "$status" -eq 0 ]
+}
+
+@test "every field the checker reads is required by the schema" {
+  run bash -c "grep -oE 'want_of [a-z.-]+' '$BATS_TEST_DIRNAME/check.sh' | cut -d' ' -f2 | sort -u"
+  [ "$status" -eq 0 ]
+  read_by_checker="$output"
+  run jq -r '.properties.fields.required[]' "$SCHEMA"
+  [ "$(printf '%s\n' "$output" | sort -u)" = "$read_by_checker" ]
+}
+
 @test "every enforcement bucket the schema requires is present" {
   run jq -e --slurpfile s "$SCHEMA" \
     '(.enforcement | keys | sort) == ($s[0].properties.enforcement.required | sort)' "$EXAMPLE"

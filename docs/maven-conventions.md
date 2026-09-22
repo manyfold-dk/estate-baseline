@@ -48,12 +48,21 @@ The server id must match everywhere it appears: the `<server>`, the profile's
 
 ## Held to the manifest, not to memory
 
-The version manifest names each value and how it is enforced. A value the parent carries is
-`inherited`: the checker fails an application POM that contradicts it. A value the parent
-cannot carry -- the Maven wrapper version lives in `.mvn/wrapper/maven-wrapper.properties` --
-is `policed`: the checker compares the file. Anything else is `informational`. An application
-that must differ records a deviation ADR, and the checker accepts that one difference
-([deviation contract](../scripts/conformance/README.md#deviation-adr-contract)).
+The version manifest names each value and the bucket it belongs to. The buckets state intent;
+the [checker](../scripts/conformance/check.sh) does not read them, and it compares two fields,
+whichever bucket they sit in:
+
+| Bucket | Meaning | What the checker compares |
+|---|---|---|
+| `inherited` | The parent carries the value | `maven.compiler.release` in every application POM that declares it. Other inherited values, such as the Quarkus platform or Surefire version, are held by inheritance alone: an application POM that overrides one is not flagged. |
+| `policed` | The parent cannot carry it | `maven.wrapper.version` against `.mvn/wrapper/maven-wrapper.properties` |
+| `informational` | Published for people and CI images | Nothing |
+
+The checker also runs the structural rules the manifest lists (action pinning, workflow
+permissions, image digests, volume backup annotations). An application that must differ
+records a deviation ADR, and the checker accepts that one difference
+([deviation contract](../scripts/conformance/README.md#deviation-adr-contract)). A new value
+to hold needs a check in `check.sh`; listing it in a bucket is not enough.
 
 ## Why the parent is not public
 
