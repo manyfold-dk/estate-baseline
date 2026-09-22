@@ -2,10 +2,12 @@
 # The generic half of the check: shapes, not names, so this file may be copied into a public
 # repository. The public site's own host (www.manyfold.dk) passes; every other subdomain fails.
 IPv4 address	\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b
+IPv6 address	(?<![\w:.-])(?:(?:[0-9a-f]{1,4}:){7}[0-9a-f]{1,4}|(?:[0-9a-f]{1,4}:){1,7}:(?:[0-9a-f]{1,4}(?::[0-9a-f]{1,4}){0,6})?|::(?:[0-9a-f]{1,4}(?::[0-9a-f]{1,4}){0,6}))(?![\w:-])
 exact version	\bv?\d+\.\d+\.\d+\b
 manyfold.dk subdomain	\b(?!www\.)[a-z0-9-]+\.manyfold\.dk\b
 tailnet host	\bts\.net\b
 cluster-internal host	\.svc\b|\.cluster\.local\b
+private-network host	\.(internal|lan|intranet|home\.arpa)\b
 encrypted secret file	\.enc\.ya?ml\b
 Hetzner server type	\bc[acpx]x?\d{2}\b
 repository path	(?<![\w/.-])(platform|infrastructure|docs|apps)/[a-z0-9-]+/

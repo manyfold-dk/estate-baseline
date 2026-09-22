@@ -14,8 +14,9 @@
 [POLICY.md](../../baseline-agent/POLICY.md) equals the inner `BEGIN policy` / `END policy`
 blocks in both runtime sources. Authors edit these source blocks together; `vendor.sh`
 only writes consumers and never changes the source blocks. Runtime adapters differ outside
-the policy blocks. The [ADR](../../docs/adr/0001-shared-agent-policy-and-runtime-adapters.md)
-records this design.
+the policy blocks. [ADR 0001](../../docs/adr/0001-public-standard-private-values.md)
+records which half of the baseline holds what; the record of the runtime-adapter design
+lives with the estate that made it.
 
 Consumers own content outside outer `baseline-agent` markers and every skill `environment.md`
 overlay. Profile assets are generated; edit the source and re-vendor. References and helpers
@@ -67,8 +68,8 @@ contracts remain failures; a text deviation must not hide unusable equipment.
 Claude uses `.claude` assets. Codex uses its actual skill catalog and explicit repo equipment;
 Claude agent definitions and frontmatter do not grant Codex capabilities. Runtime tools are
 conditional, with equipped local execution or a routed handoff as fallback. Model guides are
-on-demand references, never all loaded by default. [Release notes](../../docs/agent-harness-release.md)
-record installed-runtime evidence and limits.
+on-demand references, never all loaded by default. Release notes stay with the estate that
+publishes a release and record installed-runtime evidence and limits.
 
 ## Global ownership transition
 

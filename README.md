@@ -42,13 +42,17 @@ scripts/conformance/check.sh /path/to/repo /path/to/baseline.json
 scripts/docs/generate-adr-index.sh /path/to/repo --check
 
 # What plans are open across my repositories?
-cp tools/plan-portfolio/repos.example.txt tools/plan-portfolio/repos.txt   # then list yours
-python3 tools/plan-portfolio/generate.py
+python3 tools/plan-portfolio/generate.py \
+  --repos /path/to/your-umbrella/docs/portfolio/repos.txt \
+  --root /path/to/your/repositories --out /path/to/your-umbrella/docs/portfolio
 ```
 
-`repos.txt` is yours and is ignored by Git. `baseline.json` is the version manifest your
-repositories agree to; [`scripts/conformance/README.md`](scripts/conformance/README.md)
-documents its fields, the rules and the deviation contract.
+The generator takes every location as an argument and derives nothing from where it is
+installed: the repository list and the pages it renders name your repositories, so they
+belong in a repository of yours, never in this checkout. `tools/plan-portfolio/repos.example.txt`
+shows the list's shape. `baseline.json` is the version manifest your repositories agree
+to; [`scripts/conformance/README.md`](scripts/conformance/README.md) documents its fields,
+the rules and the deviation contract.
 
 ## Vendoring the policy
 

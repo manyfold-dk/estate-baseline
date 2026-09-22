@@ -34,12 +34,17 @@ jobs:
           echo "${KUBECONFORM_SHA256}  kubeconform.tgz" | sha256sum -c -
           tar xzf kubeconform.tgz kubeconform && sudo mv kubeconform /usr/local/bin/
       - name: Build + validate
+        # Inputs reach the shell as environment variables, never as interpolated source: a
+        # caller-controlled value is data here, not code.
+        env:
+          KUSTOMIZE_DIR: ${{ inputs.kustomize-dir }}
+          SKIP_KINDS: ${{ inputs.skip-kinds }}
         run: |
           set -euo pipefail
           SKIP_ARGS=""
-          [ -n "${{ inputs.skip-kinds }}" ] && SKIP_ARGS="-skip ${{ inputs.skip-kinds }}"
+          [ -n "$SKIP_KINDS" ] && SKIP_ARGS="-skip $SKIP_KINDS"
           # shellcheck disable=SC2086
-          kustomize build "${{ inputs.kustomize-dir }}" | \
+          kustomize build "$KUSTOMIZE_DIR" | \
             kubeconform -strict -summary \
               -schema-location default \
               -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \

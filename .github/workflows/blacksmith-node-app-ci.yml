@@ -47,7 +47,7 @@ jobs:
         run: echo "image_tag=main-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
       - name: Read and validate the CI switch
         id: switch
-        uses: manyfold-dk/estate-baseline/.github/actions/read-ci-engine-switch@55dfb458d9e5ab3c3bc9212c0b19d304d1d50465 # unreleased
+        uses: manyfold-dk/estate-baseline/.github/actions/read-ci-engine-switch@f63a3b80560d2471864428361d2965fc2758df1a # unreleased
         with:
           env-file: ${{ inputs.switch-file }}
           name: ${{ inputs.app-name }}
@@ -83,7 +83,11 @@ jobs:
     name: Build and push image
     runs-on: blacksmith-4vcpu-ubuntu-2404
     needs: [read-switch, checks]
-    if: needs.read-switch.outputs.run_blacksmith == 'true'
+    # Publication, like the deploy manifest below: from main only. A pull request runs the
+    # checks and publishes nothing, so a same-repository PR cannot push an image.
+    if: >-
+      needs.read-switch.outputs.run_blacksmith == 'true' &&
+      github.ref == 'refs/heads/main'
     permissions:
       contents: read
       packages: write
@@ -124,7 +128,7 @@ jobs:
           ref: main
           token: ${{ secrets.PUSH_TOKEN }}
       - name: Commit and push image tag
-        uses: manyfold-dk/estate-baseline/.github/actions/bump-deploy-tag@55dfb458d9e5ab3c3bc9212c0b19d304d1d50465 # unreleased
+        uses: manyfold-dk/estate-baseline/.github/actions/bump-deploy-tag@f63a3b80560d2471864428361d2965fc2758df1a # unreleased
         with:
           app-name: ${{ inputs.app-name }}
           image-base: ${{ inputs.image-base }}
@@ -135,7 +139,7 @@ jobs:
         run: git config --local --unset-all http.https://github.com/.extraheader || true
       - name: Notify deployment channel
         if: ${{ env.SLACK_WEBHOOK_DEPLOYMENTS_URL != '' }}
-        uses: manyfold-dk/estate-baseline/.github/actions/notify-deployment@55dfb458d9e5ab3c3bc9212c0b19d304d1d50465 # unreleased
+        uses: manyfold-dk/estate-baseline/.github/actions/notify-deployment@f63a3b80560d2471864428361d2965fc2758df1a # unreleased
         with:
           app-name: ${{ inputs.app-name }}
           pipeline-name: ${{ github.workflow }}

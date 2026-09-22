@@ -59,6 +59,21 @@ teardown() { [ -z "${tmp:-}" ] || rm -rf "$tmp"; }
   [[ "$output" == *"docs/runtime.md:4: repository path: $rp"* ]]
 }
 
+@test "an IPv6 address and a private-network host fail; clock times, digests and workflow commands do not" {
+  six="2001:db8:"; six="${six}:7"; full="fe80:"; full="${full}:1"; lan="printer."; lan="${lan}lan"
+  {
+    echo "listens on $six and $full"
+    echo "reachable as $lan"
+    echo "at 12:30:45 the digest sha256:abcdef01 was logged; ::add-mask:: and std::string are text"
+  } > "$export/docs/net.md"
+  run "$check" "$export" --names "$names"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"docs/net.md:1: IPv6 address: $six"* ]]
+  [[ "$output" == *"docs/net.md:1: IPv6 address: $full"* ]]
+  [[ "$output" == *"docs/net.md:2: private-network host: ${lan#printer}"* ]]
+  [[ "$output" != *"docs/net.md:3"* ]]
+}
+
 @test "the public site's own host name passes" {
   echo "Published at https://www.manyfold.dk/decisions and https://manyfold.dk/stack" > "$export/docs/links.md"
   run "$check" "$export" --names "$names"
@@ -153,6 +168,21 @@ teardown() { [ -z "${tmp:-}" ] || rm -rf "$tmp"; }
   [ "$status" -eq 1 ]
   [[ "$output" == *"escape (symlink): escapes the tree"* ]]
   [[ "$output" == *"named -> zorbulon.txt"* ]] || [[ "$output" == *"name: zorbulon"* ]]
+}
+
+@test "a symlink to a directory is checked as an entry and never followed" {
+  mkdir -p "$tmp/outside"
+  echo "hosted for zorbulon" > "$tmp/outside/tenants.md"
+  ln -s "$tmp/outside" "$export/vault"
+  run "$check" "$export" --names "$names"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"vault (symlink): escapes the tree"* ]]
+  [[ "$output" != *"tenants.md"* ]]
+  rm "$export/vault"
+  ln -s "docs" "$export/zorbulon-docs"
+  run "$check" "$export" --names "$names"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"zorbulon-docs (file name): name: zorbulon"* ]]
 }
 
 @test "no --names, a missing names file, a trailing option, no argument, or a file for <dir> is a usage error" {

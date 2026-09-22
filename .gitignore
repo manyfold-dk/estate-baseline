@@ -1,4 +1,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+# The repository list and the rendered portfolio name repositories: they belong in a repository
+# of the estate that owns them (generate.py takes --repos and --out), never here.
 tools/plan-portfolio/repos.txt
+docs/portfolio/

@@ -1,8 +1,10 @@
 name: CI
 
+# Every push to every branch, and every pull request: on a public repository a branch is
+# published the moment it is pushed, so the gate runs on the push, not on the merge
+# (docs/adr/0001).
 on:
   push:
-    branches: [main]
   pull_request:
 
 permissions:
@@ -39,3 +41,7 @@ jobs:
   secret-scan:
     # This repository's own commits, through the reusable workflow every consumer calls.
     uses: ./.github/workflows/secret-scan.yml
+
+  docs-link-check:
+    # This repository's own relative links and anchors, through the reusable workflow.
+    uses: ./.github/workflows/docs-link-check.yml

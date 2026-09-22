@@ -91,8 +91,11 @@ if allow_file:
 
 found = passed = 0
 for base, dirs, files in os.walk(root):
-    dirs[:] = sorted(d for d in dirs if d != ".git")
-    for name in sorted(files):
+    # A symlink to a directory is an entry of its own, never descended: os.walk lists it
+    # among dirs and, unfollowed, would otherwise never look at it at all.
+    linked = [d for d in dirs if os.path.islink(os.path.join(base, d))]
+    dirs[:] = sorted(d for d in dirs if d != ".git" and d not in linked)
+    for name in sorted(files + linked):
         path = os.path.join(base, name)
         rel = os.path.relpath(path, root)
         # A file name leaks as surely as a line does.
