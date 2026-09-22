@@ -91,6 +91,13 @@ the rule that decides what is published here and what is not.
 [`docs/best-practices.md`](docs/best-practices.md): the lessons behind several of these checks,
 from digest pinning and checksum verification to Argo CD drift and metric cardinality.
 
+## Scaffold and build conventions
+
+[`template/`](template/README.md) is a starting point for an application repository on this
+baseline: a Quarkus module with CI on the [shared workflows](.github/workflows/README.md),
+GitOps manifests and decision records. [`docs/maven-conventions.md`](docs/maven-conventions.md)
+explains the shared build parent it assumes, and why the parent itself is not public.
+
 ## Licence
 
 Apache-2.0. See [`LICENSE`](LICENSE).

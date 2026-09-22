@@ -1,0 +1,63 @@
+# EXAMPLE -- copy to `<app>-db-statefulset.yaml`, replace the <app> placeholders and the image
+# digest, and add it to kustomization.yaml. The `.example.yaml` suffix keeps kustomize and
+# Argo CD from picking this file up.
+#
+# Backup is opt-in per volume. Without the backup.velero.io annotations below, nothing of this
+# volume's data is backed up where the storage driver offers no volume snapshots.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: <app>-db
+  labels: { app.kubernetes.io/part-of: <app> }
+spec:
+  serviceName: <app>-db
+  replicas: 1
+  selector: { matchLabels: { app: <app>-db } }
+  template:
+    metadata:
+      labels: { app: <app>-db, app.kubernetes.io/part-of: <app> }
+      annotations:
+        # WHY: opt this volume into Velero file-system backup.
+        backup.velero.io/backup-volumes: data
+        # WHY: write a consistent logical dump onto the data volume *before* the file-system
+        # backup runs, so every backup holds a restorable pg_dump next to the raw data
+        # directory. Adjust the variable names to your credentials secret (the official
+        # postgres image uses POSTGRES_USER/PASSWORD/DB).
+        pre.hook.backup.velero.io/command: '["/bin/sh","-c","PGPASSWORD=\"$POSTGRES_PASSWORD\" pg_dump -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" -Fc -f /var/lib/postgresql/data/backup.dump && echo pg_dump complete"]'
+        pre.hook.backup.velero.io/container: postgres
+        pre.hook.backup.velero.io/on-error: Continue   # WHY: a failed dump must not block the namespace backup
+        pre.hook.backup.velero.io/timeout: 120s
+        # WHY: remove the dump after the backup so it does not accumulate on the volume.
+        post.hook.backup.velero.io/command: '["/bin/sh","-c","rm -f /var/lib/postgresql/data/backup.dump"]'
+        post.hook.backup.velero.io/container: postgres
+    spec:
+      # Pod Security "restricted" with the image's non-root postgres user (uid/gid 70 in the
+      # Alpine image). fsGroup makes the volume group-writable; PGDATA points at a subdirectory
+      # postgres creates and owns (a bare mount point would be owned root:70 and fail postgres's
+      # ownership check), which is why subPath is not used.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: postgres
+          # WHY digest-pinned: a tag is mutable. Resolve the digest with
+          #   docker buildx imagetools inspect postgres:<tag>
+          # and let Renovate move it.
+          image: docker.io/library/postgres:<tag>@sha256:<64-hex-digest>
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          envFrom: [ { secretRef: { name: <app>-db-credentials } } ]
+          ports: [ { containerPort: 5432 } ]
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec: { accessModes: [ReadWriteOnce], resources: { requests: { storage: 2Gi } } }
