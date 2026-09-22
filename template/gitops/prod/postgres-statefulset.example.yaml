@@ -1,9 +1,20 @@
-# EXAMPLE -- copy to `<app>-db-statefulset.yaml`, replace the <app> placeholders and the image
-# digest, and add it to kustomization.yaml. The `.example.yaml` suffix keeps kustomize and
-# Argo CD from picking this file up.
+# EXAMPLE -- a StatefulSet and the headless Service it names. Copy to `<app>-db.yaml`, replace
+# the <app> placeholders and the image tag and digest, and add it to kustomization.yaml. The
+# `.example.yaml` suffix keeps kustomize and Argo CD from picking this file up.
 #
 # Backup is opt-in per volume. Without the backup.velero.io annotations below, nothing of this
 # volume's data is backed up where the storage driver offers no volume snapshots.
+apiVersion: v1
+kind: Service
+metadata:
+  name: <app>-db
+  labels: { app.kubernetes.io/part-of: <app> }
+spec:
+  # Headless: the StatefulSet's serviceName, giving the pod a stable DNS name.
+  clusterIP: None
+  selector: { app: <app>-db }
+  ports: [ { name: postgres, port: 5432, targetPort: 5432 } ]
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -25,14 +36,19 @@ spec:
         # postgres image uses POSTGRES_USER/PASSWORD/DB).
         pre.hook.backup.velero.io/command: '["/bin/sh","-c","PGPASSWORD=\"$POSTGRES_PASSWORD\" pg_dump -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" -Fc -f /var/lib/postgresql/data/backup.dump && echo pg_dump complete"]'
         pre.hook.backup.velero.io/container: postgres
-        pre.hook.backup.velero.io/on-error: Continue   # WHY: a failed dump must not block the namespace backup
+        # WHY Fail: while postgres runs, the raw data directory alone is not a consistent
+        # backup, so a backup without a finished dump is not a restorable one. Fail makes
+        # Velero stop backing up this pod and mark the backup PartiallyFailed, which alerting
+        # can see; Continue would record it as a success.
+        pre.hook.backup.velero.io/on-error: Fail
+        # Size the timeout to the database: a dump that outlives it fails the backup the same way.
         pre.hook.backup.velero.io/timeout: 120s
         # WHY: remove the dump after the backup so it does not accumulate on the volume.
         post.hook.backup.velero.io/command: '["/bin/sh","-c","rm -f /var/lib/postgresql/data/backup.dump"]'
         post.hook.backup.velero.io/container: postgres
     spec:
-      # Pod Security "restricted" with the image's non-root postgres user (uid/gid 70 in the
-      # Alpine image). fsGroup makes the volume group-writable; PGDATA points at a subdirectory
+      # Pod Security "restricted" with the image's non-root postgres user: uid/gid 70 in the
+      # Alpine variant used below (the Debian variant's is 999; change both together). fsGroup makes the volume group-writable; PGDATA points at a subdirectory
       # postgres creates and owns (a bare mount point would be owned root:70 and fail postgres's
       # ownership check), which is why subPath is not used.
       securityContext:
@@ -44,9 +60,9 @@ spec:
       containers:
         - name: postgres
           # WHY digest-pinned: a tag is mutable. Resolve the digest with
-          #   docker buildx imagetools inspect postgres:<tag>
+          #   docker buildx imagetools inspect postgres:<tag>-alpine
           # and let Renovate move it.
-          image: docker.io/library/postgres:<tag>@sha256:<64-hex-digest>
+          image: docker.io/library/postgres:<tag>-alpine@sha256:<64-hex-digest>
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: ["ALL"] }
