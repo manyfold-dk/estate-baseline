@@ -1,0 +1,215 @@
+name: Quarkus image build & push (reusable)
+
+# Push-to-main pipeline for a Quarkus module: verify, then build and push an image. It
+# replaces near-identical inline pipelines in each application repository.
+#
+# What stays with the caller:
+#   - any web or frontend lint and test job
+#   - the GitOps deploy tag bump (the bump-deploy-tag action), because that commit must
+#     land in the caller's repository with the caller's credentials
+#   - post-deploy smoke tests
+#
+# Two engines through the `engine` input: `github` (default; hosted runners, works for
+# anyone) and `blacksmith` (Blacksmith runners, checkout, sticky Maven cache and builder;
+# needs the Blacksmith GitHub App and its runner labels).
+#
+# Maven authentication covers both module layouts: a committed `.mvn/settings.xml`
+# activated from `.mvn/maven.config` (it reads the token from the environment), and a module
+# with no settings, for which `maven-repository-url` makes the workflow write one. The image
+# build receives the token as the BuildKit secret `gh_token`, never as a build argument, so
+# it never lands in a layer or in provenance.
+#
+# Minimal caller (pin by full commit id):
+#   jobs:
+#     build-push:
+#       permissions:
+#         contents: read
+#         packages: write
+#       uses: manyfold-dk/estate-baseline/.github/workflows/quarkus-image-build-push.yml@<sha>
+#       with:
+#         working-directory: apps/app
+#         image-base: ghcr.io/<owner>/<repository>/app
+#         java-version: "<major>"
+#       secrets:
+#         maven-token: ${{ secrets.MAVEN_TOKEN }}   # optional
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Path to the Maven module to build (the Docker build context).
+        type: string
+        required: true
+      image-base:
+        description: "Image repository without tag, e.g. ghcr.io/<owner>/<repository>/app."
+        type: string
+        required: true
+      java-version:
+        description: Temurin JDK major version.
+        type: string
+        required: true
+      dockerfile:
+        description: Path to the Dockerfile. Defaults to <working-directory>/Dockerfile.
+        type: string
+        default: ""
+      maven-repository-url:
+        description: >-
+          https:// URL of an authenticated Maven repository to resolve from, a parent POM
+          included. Empty: no settings.xml is written.
+        type: string
+        default: ""
+      maven-server-id:
+        description: Server id for that repository; must match a committed settings.xml.
+        type: string
+        default: github
+      engine:
+        description: "CI engine: github | blacksmith."
+        type: string
+        default: github
+      runner-verify:
+        description: Runner label for the verify job.
+        type: string
+        default: ubuntu-latest
+      runner-image:
+        description: Runner label for the image job.
+        type: string
+        default: ubuntu-latest
+      push:
+        description: Whether to build and push the image. The image job also requires refs/heads/main.
+        type: boolean
+        default: true
+      build-args:
+        description: Newline-separated build arguments for the image build. Never a secret.
+        type: string
+        default: ""
+      registry-cache:
+        description: Use a registry-backed BuildKit cache (<image-base>:buildcache).
+        type: boolean
+        default: true
+    secrets:
+      maven-token:
+        description: >-
+          Token with read access to the Maven repository. Optional: falls back to the job's
+          GITHUB_TOKEN, which can read packages of the calling repository only.
+        required: false
+    outputs:
+      image-tag:
+        description: The computed image tag (main-<short-sha>).
+        value: ${{ jobs.verify.outputs.image_tag }}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Build & test
+    runs-on: ${{ inputs.runner-verify }}
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (!contains(github.event.head_commit.message, '[skip ci]') &&
+       !contains(github.event.head_commit.message, '[ci skip]'))
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - name: Checkout (github engine)
+        if: inputs.engine == 'github'
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Checkout (blacksmith engine)
+        if: inputs.engine == 'blacksmith'
+        uses: useblacksmith/checkout@41cdeedae8edb2e684ba22896a5fd2a3cb85db6b # v1
+        with:
+          persist-credentials: false
+      - name: Compute image tag
+        id: meta
+        run: echo "image_tag=main-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java-version }}
+          cache: ${{ inputs.engine == 'github' && 'maven' || '' }}
+      - name: Persist Maven repository (sticky disk)
+        if: inputs.engine == 'blacksmith'
+        uses: useblacksmith/stickydisk@4c034ba57b706cf0e3b4b0ce098c2a3b1071580c # v1
+        with:
+          key: ${{ github.repository }}-${{ inputs.working-directory }}-m2
+          path: ~/.m2
+      - name: Set up Maven registry
+        if: inputs.maven-repository-url != ''
+        uses: manyfold-dk/estate-baseline/.github/actions/setup-maven-registry@49ba3ac26fb8895e07e58817239ac990f1d1afd4 # unreleased
+        with:
+          repository-url: ${{ inputs.maven-repository-url }}
+          server-id: ${{ inputs.maven-server-id }}
+          username: ${{ github.actor }}
+          token: ${{ secrets.maven-token || github.token }}
+      - name: Build and test
+        working-directory: ${{ inputs.working-directory }}
+        # A committed .mvn/settings.xml reads the token from the environment; both names are set.
+        env:
+          MAVEN_REGISTRY_TOKEN: ${{ secrets.maven-token || github.token }}
+          GITHUB_PERSONAL_ACCESS_TOKEN: ${{ secrets.maven-token || github.token }}
+        run: |
+          # Wrapper-robust: some modules ship mvnw, others do not.
+          if [ -x ./mvnw ]; then ./mvnw -B verify; else mvn -B verify; fi
+
+  image:
+    name: Build & push image
+    runs-on: ${{ inputs.runner-image }}
+    needs: verify
+    if: ${{ inputs.push && github.ref == 'refs/heads/main' }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout (github engine)
+        if: inputs.engine == 'github'
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Checkout (blacksmith engine)
+        if: inputs.engine == 'blacksmith'
+        uses: useblacksmith/checkout@41cdeedae8edb2e684ba22896a5fd2a3cb85db6b # v1
+        with:
+          persist-credentials: false
+      - uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Set up Buildx (github engine)
+        if: inputs.engine == 'github'
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Set up Docker builder (blacksmith engine)
+        if: inputs.engine == 'blacksmith'
+        uses: useblacksmith/setup-docker-builder@ab5c1da94f53f5cd75c1038092aa276dddfccbba # v1
+      - name: Build and push (github engine)
+        if: inputs.engine == 'github'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ inputs.working-directory }}
+          file: ${{ inputs.dockerfile != '' && inputs.dockerfile || format('{0}/Dockerfile', inputs.working-directory) }}
+          push: true
+          tags: ${{ inputs.image-base }}:${{ needs.verify.outputs.image_tag }}
+          cache-from: ${{ inputs.registry-cache && format('type=registry,ref={0}:buildcache', inputs.image-base) || '' }}
+          cache-to: ${{ inputs.registry-cache && format('type=registry,ref={0}:buildcache,mode=max', inputs.image-base) || '' }}
+          build-args: ${{ inputs.build-args }}
+          secrets: |
+            gh_token=${{ secrets.maven-token || github.token }}
+      - name: Build and push (blacksmith engine)
+        if: inputs.engine == 'blacksmith'
+        uses: useblacksmith/build-push-action@fb9e3e6a9299c78462bfadd0d93352c316adc9b8 # v2
+        with:
+          context: ${{ inputs.working-directory }}
+          file: ${{ inputs.dockerfile != '' && inputs.dockerfile || format('{0}/Dockerfile', inputs.working-directory) }}
+          push: true
+          tags: ${{ inputs.image-base }}:${{ needs.verify.outputs.image_tag }}
+          cache-from: ${{ inputs.registry-cache && format('type=registry,ref={0}:buildcache', inputs.image-base) || '' }}
+          cache-to: ${{ inputs.registry-cache && format('type=registry,ref={0}:buildcache,mode=max', inputs.image-base) || '' }}
+          build-args: ${{ inputs.build-args }}
+          github-token: ${{ github.token }}
+          secrets: |
+            gh_token=${{ secrets.maven-token || github.token }}
