@@ -10,7 +10,7 @@ setup() {
   tmp="$(cd "$(mktemp -d)" && pwd -P)"
   check="$BATS_TEST_DIRNAME/publish-check.sh"
   names="$tmp/names.txt"
-  printf '# invented\nzorbulon\nQuux Industries\n' > "$names"
+  printf '# invented\nzorbulon\nQuux Industries\nexample-org/secret\n' > "$names"
   export="$tmp/export"
   # Shapes the gate detects are assembled at run time so this file carries none of them.
   brand="manyf"; brand="${brand}old"; tail="ts"; tail="$tail.net"; rp="platform/comp"; rp="${rp}onents/"
@@ -33,6 +33,24 @@ teardown() { [ -z "${tmp:-}" ] || rm -rf "$tmp"; }
   [[ "$output" == *"docs/tenants.md:2: name: ZORBULON"* ]]
   [[ "$output" == *"docs/tenants.md:3: name: quux industries"* ]]
   [[ "$output" != *"tenants.md:4"* ]]
+}
+
+@test "a name still hits inside a longer hyphenated name" {
+  printf 'namespace: zorbulon-prod\n' > "$export/docs/deploy.md"
+  run "$check" "$export" --names "$names"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"docs/deploy.md:1: name: zorbulon"* ]]
+}
+
+@test "a repository term does not hit a longer repository name, but hits itself" {
+  printf 'source: https://github.com/example-org/secret-sauce\n' > "$export/docs/public.md"
+  run "$check" "$export" --names "$names"
+  [ "$status" -eq 0 ]
+  printf 'clone example-org/secret first\nthen example-org/secret/docs\n' > "$export/docs/private.md"
+  run "$check" "$export" --names "$names"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"docs/private.md:1: name: example-org/secret"* ]]
+  [[ "$output" == *"docs/private.md:2: name: example-org/secret"* ]]
 }
 
 @test "a listed name in a file name fails" {
