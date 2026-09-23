@@ -72,8 +72,15 @@ def rows(path):
     with open(path, encoding="utf-8") as f:
         return [l.rstrip("\n") for l in f if l.strip() and not l.startswith("#")]
 
-checks = [("name", re.compile(r"(?<![A-Za-z0-9])" + re.escape(n.strip()) + r"(?![A-Za-z0-9])", re.I))
-          for n in (rows(names_file) if names_file else [])]
+def name_pattern(term):
+    # A term matches as a whole word; a hyphen counts as a word break, so a tenant or client
+    # name also hits inside a longer hyphenated name (`<name>-prod`, `<name>-notes.md`).
+    # A repository term (`org/repo`) is the exception on its right: `org/repo-other` names a
+    # different repository, so a hyphen followed by more name continues it instead.
+    tail = r"(?![A-Za-z0-9]|-[A-Za-z0-9])" if "/" in term else r"(?![A-Za-z0-9])"
+    return re.compile(r"(?<![A-Za-z0-9])" + re.escape(term) + tail, re.I)
+
+checks = [("name", name_pattern(n.strip())) for n in (rows(names_file) if names_file else [])]
 for row in rows(patterns_file):
     label, pattern = row.split("\t", 1)
     checks.append((label, re.compile(pattern, re.I)))
