@@ -22,6 +22,9 @@ name: Quarkus image build & push (reusable)
 #   RUN --mount=type=secret,id=gh_token,env=MAVEN_REGISTRY_TOKEN ./mvnw -B package
 # (`env=` needs Dockerfile frontend 1.10 or later).
 #
+# A module whose parent POM lives elsewhere in the repository (resolved by relativePath, no
+# registry and no token) sets `context: .` so the image build can copy that parent too.
+#
 # Minimal caller (pin by full commit id):
 #   jobs:
 #     build-push:
@@ -40,9 +43,17 @@ on:
   workflow_call:
     inputs:
       working-directory:
-        description: Path to the Maven module to build (the Docker build context).
+        description: Path to the Maven module to build. Also the Docker build context unless `context` is set.
         type: string
         required: true
+      context:
+        description: >-
+          Docker build context, when it must be wider than the module: for example the
+          repository root, so the image build can read a parent POM the module references by
+          relativePath. Defaults to working-directory. Pair it with a Dockerfile-specific
+          ignore file (<Dockerfile>.dockerignore) to keep the context small.
+        type: string
+        default: ""
       image-base:
         description: "Image repository without tag, e.g. ghcr.io/<owner>/<repository>/app."
         type: string
@@ -205,7 +216,7 @@ jobs:
         if: inputs.engine == 'github'
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
-          context: ${{ inputs.working-directory }}
+          context: ${{ inputs.context != '' && inputs.context || inputs.working-directory }}
           file: ${{ inputs.dockerfile != '' && inputs.dockerfile || format('{0}/Dockerfile', inputs.working-directory) }}
           push: true
           tags: ${{ inputs.image-base }}:${{ needs.verify.outputs.image_tag }}
@@ -219,7 +230,7 @@ jobs:
         if: inputs.engine == 'blacksmith'
         uses: useblacksmith/build-push-action@fb9e3e6a9299c78462bfadd0d93352c316adc9b8 # v2
         with:
-          context: ${{ inputs.working-directory }}
+          context: ${{ inputs.context != '' && inputs.context || inputs.working-directory }}
           file: ${{ inputs.dockerfile != '' && inputs.dockerfile || format('{0}/Dockerfile', inputs.working-directory) }}
           push: true
           tags: ${{ inputs.image-base }}:${{ needs.verify.outputs.image_tag }}
