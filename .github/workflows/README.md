@@ -50,6 +50,10 @@ Under `.github/actions/`. Logic lives in checked-in, `bats`-tested shell scripts
   optional `maven-token` secret, else the job's `GITHUB_TOKEN`, which reads only the calling
   repository's packages. A committed settings file reads it as `MAVEN_REGISTRY_TOKEN` or
   `GITHUB_PERSONAL_ACCESS_TOKEN`.
+- **Build context.** The image builds from `working-directory` unless `context` widens it,
+  for example to `.` when the module's parent POM sits elsewhere in the repository and is
+  resolved by relativePath with no registry. With a wider context, keep it small with a
+  Dockerfile-specific ignore file next to the Dockerfile (`Dockerfile.dockerignore`).
 - **Image.** `image-base` (required), `dockerfile`, `build-args`, `registry-cache`. The
   Dockerfile receives the token as the BuildKit secret `gh_token`. A committed settings file
   reads `MAVEN_REGISTRY_TOKEN` from the environment, not the secret file, so mount the secret
