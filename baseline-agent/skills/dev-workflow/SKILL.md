@@ -25,8 +25,7 @@ Use `blocked` when waiting on a required dependency. The
 Execute locally by default. For authorized, useful independent work, delegate only through
 available runtime capabilities, with bounded scope and explicit file ownership. If a tool
 is absent, work locally when equipped or route to an equipped repository session. Independent
-review is available for requested, repository-required or risk-driven review; it is not an
-automatic spawn/review loop. No external process skill is required.
+review is available for requested, repository-required or risk-driven review.
 
 Review the full attributed task change and current content. Run required repository/domain
 checks using `verification-loop` when available or the overlay directly. Fix findings and

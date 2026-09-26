@@ -1,8 +1,6 @@
 # Worktrees
 
-Create a branch only after an explicit user request, using a worktree and the repository's
-worktree convention. Calling a development skill is not branch consent. Otherwise work on
-the current branch, including main. Commit coherent verified work autonomously.
+This applies once the user has asked for a branch (BRANCH-01).
 
 Read the active repo's `dev-workflow/environment.md` for its worktree root, helper and
 branch format. Inspect branch, HEAD, and dirty state before setup. A new worktree does not

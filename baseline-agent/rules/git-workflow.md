@@ -4,11 +4,6 @@ Use the common policy's branch consent, ownership, conventional commit and rebas
 rules. Inspect the index and working diff before explicitly staging owned paths. Resolve
 same-path overlaps before staging; never sweep another session's changes into a commit.
 
-Never stash, restore, reset or temporarily move another session's edits to publish.
-A failed pull/rebase does not permit pushing. Use an owned disposable detached checkout
-for pull/rebase, relevant verification and normal push when safe; preserve the original
-checkout/index. Otherwise coordinate the publication dependency.
-
 When the authorized workflow calls for a PR, describe the problem, resulting behavior,
 verification and material limitations. Follow repository review and merge requirements.
 Do not infer a PR, reviewer message, merge, or branch deletion from a skill invocation.

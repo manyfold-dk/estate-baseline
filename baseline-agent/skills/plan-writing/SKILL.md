@@ -22,6 +22,6 @@ when useful; scale detail to the implementer's needs.
 
 Check requirement coverage, contradictory interfaces and actionable acceptance criteria.
 For requested or warranted independent review, use the active runtime adapter and the
-[review brief](references/review.md). No process plugin is required. Continue authorized
+[review brief](references/review.md). Continue authorized
 implementation using repository equipment when equipped; otherwise provide a concise
 handoff. Do not repeat an execution-choice question already answered by the user.

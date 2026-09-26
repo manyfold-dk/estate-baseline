@@ -21,6 +21,5 @@ the concrete written artifact; do not ask again for decisions already approved.
 
 If an independent review is requested or warranted, use the active runtime adapter and
 [review brief](references/review.md). Otherwise check scope and consistency locally.
-Use available visual tools when they help explain a design; this skill requires no browser
-server or plugin. For an authorized implementation plan, use the available `plan-writing`
+Use available visual tools when they help explain a design. For an authorized implementation plan, use the available `plan-writing`
 skill or write the equivalent plan directly when that skill is unavailable.

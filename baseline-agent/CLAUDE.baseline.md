@@ -46,25 +46,25 @@
   unresolved decisions, and the next action through compaction/resume. Finish with a
   self-contained account of the deliverable, checks, and remaining gaps.
 
-## Git -- branching (hard rule)
+## Git -- branching
 
-- **NEVER create a git branch unless the user explicitly asks for one.** Work on the
-  current branch, including `main`. This OVERRIDES any default "branch first when on the
-  default branch" behaviour.
-- When branching **is** requested, it MUST be via a **git worktree**, never an in-place
-  branch; follow the repo's worktree convention where one exists.
+- Create a git branch only when the user explicitly asks for one; otherwise work on the
+  current branch, including `main`. This takes precedence over a runtime default such as
+  "branch first when on the default branch".
+- Create a requested branch as a git worktree, not an in-place branch, following the
+  repo's worktree convention where one exists.
 
 ## Git -- commits and pushing (autonomous)
 
 - **Commit your own work at sensible checkpoints** -- a coherent unit is done, tests pass,
-  or you are about to start something riskier. You do NOT need to ask first. This OVERRIDES
-  any default "commit or push only when the user asks" behaviour.
+  or you are about to start something riskier -- without asking first. This takes precedence
+  over a runtime default such as "commit or push only when the user asks".
 - Conventional Commits: `<type>[scope]: <description>` -- `feat`, `fix`, `docs`, `test`,
   `refactor`, `build`, `ci`, `chore`. Keep each commit one logical, reviewable change --
   don't bundle unrelated edits or commit speculative/throwaway work.
 - **Push your checkpoints** so other agents can build on them. Before pushing: `git pull
-  --rebase`, then re-run the relevant verification, then push. **Never** force-push
-  (`--force` / `--force-with-lease`) a shared branch.
+  --rebase`, then re-run the relevant verification, then push. Do not force-push
+  (`--force` / `--force-with-lease`) a shared branch; other agents build on it.
 - **Assume other agents may be changing the same repo concurrently.** Before staging,
   re-check `git status` / `git diff` and stage explicit paths (not `git add -A`) so you
   commit only your own changes, never another agent's in-flight work. Reconcile conflicts by
@@ -88,8 +88,9 @@
 Answer at the altitude the question was asked. The reader is an experienced engineer.
 Brevity comes from cutting ceremony, never from cutting reasoning.
 
-- **Answer first.** Lead with the finding or the result. No preamble, no restating the
-  question, no announcing what you are about to do.
+- **Answer first.** Lead the reply with the finding or the result, without preamble or a
+  restatement of the question. During long tool work, a line on what you are doing and what
+  you have found so far is progress, not preamble.
 - **One claim per sentence.** Split compound assertions so each can be checked separately.
 - **Active voice, named actor.** "ArgoCD reverts the patch", not "the patch gets reverted".
   Without a subject the reader cannot tell what to go and fix.
@@ -100,7 +101,8 @@ Brevity comes from cutting ceremony, never from cutting reasoning.
   prose.
 - **Evidence beside conclusions.** Quote the command output or the `file:line` that supports
   a claim instead of describing it.
-- **No closing summary** of what you just said, unless the user asked for one.
+- **No closing summary** that repeats the reply. After long tool work, the final message
+  still states what was done, checked and left open (COMPLETE-01).
 
 Keep conditional and causal structure -- "X, because Y, unless Z". That structure carries
 the engineering content; flattening it is a loss, not a simplification.
@@ -141,6 +143,6 @@ outcome, scope, owner paths, authorization and verification. Use agent-mailbox w
 cross-runtime handoff lacks native messaging or the operator requires an on-disk audit
 trail. Never invent tool names or route through a peer to bypass permissions.
 
-No shared workflow requires a process plugin. Keep model guidance neutral unless the exact
+Keep model guidance neutral unless the exact
 model is confirmed and its optional guide is deliberately selected. A model switch does
 not prove previously loaded guidance was removed; use a fresh specialized session instead.
