@@ -23,3 +23,7 @@ exact version	*	.github/actions/install-scanners/action.yml
 exact version	*	.github/workflows/manifest-validate.yml
 exact version	*	.github/actions/secret-scan/action.yml
 exact version	*	.github/workflows/blacksmith-node-app-ci.yml
+# these workflows pin this repository's own actions by release; its own release number is not a version in use
+exact version	*	.github/workflows/quarkus-build.yml
+exact version	*	.github/workflows/quarkus-image-build-push.yml
+exact version	*	.github/workflows/secret-scan.yml

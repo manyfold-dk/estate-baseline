@@ -163,7 +163,7 @@ jobs:
           path: ~/.m2/repository
       - name: Set up Maven registry
         if: inputs.maven-repository-url != ''
-        uses: manyfold-dk/estate-baseline/.github/actions/setup-maven-registry@49ba3ac26fb8895e07e58817239ac990f1d1afd4 # unreleased
+        uses: manyfold-dk/estate-baseline/.github/actions/setup-maven-registry@73372957c65838fc9461ed43942b49d18f15fd5d # v1.0.0
         with:
           repository-url: ${{ inputs.maven-repository-url }}
           server-id: ${{ inputs.maven-server-id }}
