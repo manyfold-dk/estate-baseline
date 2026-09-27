@@ -145,6 +145,9 @@ echo "== trufflehog"
 # --json keeps the raw value out of the terminal: only detector, file and line are printed.
 # A scanner that could not read something has not scanned it: --fail-on-scan-errors, and
 # its stderr is kept (it carries no values) so the failure can be read.
+# The default --results keeps trufflehog's false-positive filter, which drops an unverified
+# match that contains a dictionary word. Counting those too (filtered_unverified) flags the
+# heading anchors of a table of contents, and no allow row can exempt a scanner finding.
 th_raw="$(mktemp)"; th_err="$(mktemp)"
 th_rc=0
 trufflehog filesystem "$dir" --json --no-verification --no-update --fail-on-scan-errors > "$th_raw" 2> "$th_err" || th_rc=$?

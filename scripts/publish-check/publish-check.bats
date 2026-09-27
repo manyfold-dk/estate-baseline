@@ -109,7 +109,13 @@ teardown() { [ -z "${tmp:-}" ] || rm -rf "$tmp"; }
 }
 
 @test "a token-shaped string fails in both scanners, and its value is never printed" {
-  body="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 36)"
+  # trufflehog drops an unverified match that contains a word from its false-positive list
+  # (CERT, PKCS, ...); a fully random body carried one about once in 500 runs. Letters
+  # alternate with digits, so no word can form and the test does not depend on that filter.
+  letters="$(LC_ALL=C tr -dc 'A-Za-z' </dev/urandom | head -c 18)"
+  digits="$(LC_ALL=C tr -dc '0-9' </dev/urandom | head -c 18)"
+  body=""
+  for i in $(seq 0 17); do body="$body${letters:i:1}${digits:i:1}"; done
   printf 'first line\ntoken = "ghp_%s"\n' "$body" > "$export/settings.txt"
   run "$check" "$export" --names "$names"
   [ "$status" -eq 1 ]
