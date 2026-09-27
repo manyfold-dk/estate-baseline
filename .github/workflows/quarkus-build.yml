@@ -62,7 +62,7 @@ jobs:
       # action is pinned by commit id like any other.
       - name: Set up Maven registry
         if: inputs.maven-repository-url != ''
-        uses: manyfold-dk/estate-baseline/.github/actions/setup-maven-registry@73372957c65838fc9461ed43942b49d18f15fd5d # v1.0.0
+        uses: manyfold-dk/estate-baseline/.github/actions/setup-maven-registry@790b5626e0f5c904b81ffd99596384d3ef2530ff # v1.1.0
         with:
           repository-url: ${{ inputs.maven-repository-url }}
           server-id: ${{ inputs.maven-server-id }}
