@@ -31,7 +31,9 @@
   treat a hit as a stop, never as a warning. The name deny-list is itself such a value: never
   copy it, or a term from it, into a public repository, not as a fixture or a test case.
   Add a new tenant, client or private repository to the deny-list in the change that
-  creates it, before its name is used anywhere.
+  creates it, before its name is used anywhere. A repository the owner designates public
+  from its creation is registered as designated public instead and never enters the
+  deny-list.
 - **VERIFY-01 -- Evidence:** Run mandatory repository checks and checks appropriate to the
   change. Repeat or broaden only after changes, failures, or unresolved concerns. Report
   actual results and limitations. Review the complete task, including uncommitted changes.

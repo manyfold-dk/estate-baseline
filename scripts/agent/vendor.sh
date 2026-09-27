@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage (run from INSIDE a consumer repo):
-#   /path/to/baseline/scripts/agent/vendor.sh --profile <app|docs> [--overlay <dir>]
+#   /path/to/baseline/scripts/agent/vendor.sh --profile <app|docs> [--overlay <dir> --public-repos <list>]
 #
 # Copies the profile's rules/skills/agents into ./.claude/ (generic SKILL.md only for the
 # split skills -- never touches environment.md), replaces the marker-delimited block in
@@ -9,17 +9,28 @@
 #
 # --overlay <dir>: the estate's private values. Each "<!-- name-overlay -->" line in a
 # house-rules body is replaced by <dir>/<name>.md. Without it the placeholders stay, which
-# is right for a consumer outside any estate.
+# is right for a consumer outside any estate and for one the estate designates public.
+# --overlay needs --public-repos <list>, the estate's designation list: before anything is
+# written, scripts/publish-check/designation.sh classifies the consumer's push URLs, and
+# only a `private` consumer receives the overlay. A `public` one, or one that cannot be
+# classified, is refused. The overlay must sit in a Git work tree, so the stamp can name it.
+#
+# When ./.publish-allow.tsv exists, the rows the vendored files need (baseline-agent/
+# publish-allow.tsv) are written into it between "# BEGIN baseline-agent allow" and
+# "# END baseline-agent allow". Rows outside that block are the consumer's. The file is
+# never created: its presence is the consumer's opt-in.
 set -euo pipefail
 
 profile=""
 discovery=""
 overlay=""
+public_repos=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --codex-discovery) discovery="${2:?--codex-discovery needs legacy or repo}"; shift 2;;
     --profile) profile="${2:?--profile needs a value}"; shift 2;;
     --overlay) overlay="$(cd "${2:?--overlay needs a directory}" && pwd)"; shift 2;;
+    --public-repos) public_repos="${2:?--public-repos needs a file}"; shift 2;;
     *) echo "unknown arg: $1" >&2; exit 2;;
   esac
 done
@@ -30,6 +41,21 @@ payload="$(cd "$script_dir/../../baseline-agent" && pwd)"
 profiles="$payload/profiles.yaml"
 version="$(cat "$payload/VERSION")"
 consumer="$(pwd)"
+
+# The leak direction is refused here, before any write: the estate's values go only into a
+# consumer the estate's own list does not designate public, first vendor included.
+if [ -n "$overlay" ]; then
+  [ -n "$public_repos" ] || { echo "vendor: --overlay needs --public-repos <list>: a consumer is classified before it receives the estate's values" >&2; exit 2; }
+  git -C "$overlay" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+    || { echo "vendor: overlay $overlay is not in a Git work tree; refused" >&2; exit 2; }
+  designation="$("$script_dir/../publish-check/designation.sh" --list "$public_repos" --dir "$consumer")" \
+    || { echo "vendor: $consumer cannot be classified against $public_repos; refused, nothing written" >&2; exit 2; }
+  case "$designation" in
+    private) ;;
+    public) echo "vendor: $consumer is designated public; vendor without --overlay. Nothing written." >&2; exit 2 ;;
+    *) echo "vendor: unexpected classification '$designation'; refused" >&2; exit 2 ;;
+  esac
+fi
 if [ -z "$discovery" ]; then
   discovery="$(sed -n 's/^codex_discovery=//p' "$consumer/.claude/.baseline-agent-version" 2>/dev/null || true)"
   discovery="${discovery:-legacy}"
@@ -83,6 +109,27 @@ inject_block() { # $1 = consumer markdown file, $2 = baseline source (CLAUDE.bas
   rm -f "$bodyfile"
 }
 
+# The allow rows the vendored files need, the marker version filled in (publish-allow.tsv).
+allow_rows() { sed "s/@VERSION@/${version#agent-}/g" "$payload/publish-allow.tsv"; }
+
+inject_allow() { # $1 = the consumer's .publish-allow.tsv
+  local file="$1" tmp rows
+  tmp="$(mktemp)"; rows="$(mktemp)"
+  allow_rows > "$rows"
+  if grep -q '^# BEGIN baseline-agent allow' "$file"; then
+    awk -v rf="$rows" '
+      /^# BEGIN baseline-agent allow/ { print; while ((getline l < rf) > 0) print l; close(rf); skip=1; next }
+      /^# END baseline-agent allow/   { print; skip=0; next }
+      skip!=1 { print }
+    ' "$file" > "$tmp"
+  else
+    { cat "$file"; [ -z "$(tail -c1 "$file")" ] || echo
+      echo "# BEGIN baseline-agent allow (vendored; do not edit)"; cat "$rows"; echo "# END baseline-agent allow"; } > "$tmp"
+  fi
+  cat "$tmp" > "$file"
+  rm -f "$tmp" "$rows"
+}
+
 assets="$(profile_assets "$profile")"
 [ -n "$assets" ] || { echo "error: unknown or empty profile '$profile' (see baseline-agent/profiles.yaml)" >&2; exit 2; }
 
@@ -114,6 +161,8 @@ if [ "$discovery" = repo ]; then
   done < <(printf '%s\n' "$assets" | awk -F/ '$1=="skills" {print $2}' | sort -u)
 fi
 
+if [ -f "$consumer/.publish-allow.tsv" ]; then inject_allow "$consumer/.publish-allow.tsv"; fi
+
 python3 "$script_dir/contracts.py" --payload "$payload" --consumer "$consumer" --profile "$profile" --discovery "$discovery"
 cat > "$consumer/.claude/.baseline-agent-version" <<EOF
 version=$version
@@ -123,6 +172,7 @@ source_commit=$(git -C "$payload" rev-parse HEAD 2>/dev/null || echo unknown)
 source_dirty=$([ -n "$(git -C "$payload" status --porcelain -- . 2>/dev/null)" ] && echo true || echo false)
 overlay_commit=$([ -n "$overlay" ] && git -C "$overlay" rev-parse HEAD 2>/dev/null || echo none)
 overlay_tree=$([ -n "$overlay" ] && git -C "$overlay" rev-parse "HEAD:./" 2>/dev/null || echo none)
+overlay_applied=$([ -n "$overlay" ] && echo true || echo false)
 overlay_dirty=$([ -n "$overlay" ] && [ -n "$(git -C "$overlay" status --porcelain -- . 2>/dev/null)" ] && echo true || echo false)
 vendored_at=$(date -u +%FT%TZ)
 EOF

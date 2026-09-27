@@ -37,6 +37,32 @@ records version, profile, source checkout HEAD, timestamp and discovery mode. A 
 prepared in the same commit records the pre-commit HEAD; content checks establish payload
 agreement rather than treating that field as authorship or immutable build provenance.
 
+An estate fills the policy's placeholders with its own values through an overlay, and
+classifies each consumer first:
+
+```bash
+/path/to/baseline/scripts/agent/vendor.sh --profile app \
+  --overlay /path/to/estate/overlay --public-repos /path/to/estate/public-repos.txt
+/path/to/baseline/scripts/agent/check.sh --overlay /path/to/estate/overlay .
+```
+
+`--overlay` requires `--public-repos`, the estate's list of repositories designated public.
+Before anything is written, `scripts/publish-check/designation.sh --dir` classifies every
+push URL of every remote of the consumer against that list. Only a `private` consumer
+receives the overlay. A repository designated public is vendored without an overlay, and the
+placeholders stay: `vendor.sh` refuses `--overlay` for it, first vendor included, and for a
+consumer that cannot be classified (no remote, a malformed list row). The overlay must sit in
+a Git work tree. The stamp records `overlay_applied=true|false`; `check.sh` reports a check
+run in the other mode as `agent-baseline-overlay` drift, first, and no deviation ADR
+suppresses it. `check.sh` does not read the list: the caller classifies and picks the mode.
+
+When the consumer keeps a `.publish-allow.tsv` (the publication gate's allow file), the vendor
+writes the rows its vendored files need, from
+[`baseline-agent/publish-allow.tsv`](../../baseline-agent/publish-allow.tsv), between
+`# BEGIN baseline-agent allow` and `# END baseline-agent allow`. Rows outside the block are
+the consumer's. The vendor never creates the file; its presence is the consumer's opt-in.
+`check.sh` reports a block that differs as `publish-allow` drift.
+
 Codex repo discovery is explicit: `--codex-discovery repo` creates relative links from
 `.agents/skills/<name>` to `../../.claude/skills/<name>`. Use it only after runtime gate
 approval. The default preserves the stamped mode, or `legacy` for unstamped consumers.
@@ -107,11 +133,15 @@ catalog/activation checks. A directory called `_retired` inside a discovered roo
 ## Verification and publication
 
 ```bash
-bats scripts/agent/check.bats
+bats scripts/agent/check.bats scripts/publish-check/designation.bats
 python3 -m unittest discover -s scripts/agent -p 'test_*.py'
 python3 -m unittest discover -s baseline-agent/skills/agent-mailbox/scripts/tests
-shellcheck -S warning scripts/agent/vendor.sh scripts/agent/check.sh scripts/agent/global-install.sh
+shellcheck -S warning scripts/agent/vendor.sh scripts/agent/check.sh scripts/agent/global-install.sh scripts/publish-check/designation.sh
 ```
+
+`check.bats` also vendors a scratch consumer per profile without an overlay and with an
+empty allow file, and runs the publication gate over it in shape-only mode: a payload change
+that brings a new shape fails there until `publish-allow.tsv` carries its row.
 
 Tests use scratch app/docs consumers and homes, disposable Git repositories and mocked domain
 commands. No live infrastructure, credentials, global install or model batch is required.

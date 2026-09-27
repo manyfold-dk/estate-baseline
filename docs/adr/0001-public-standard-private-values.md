@@ -117,7 +117,7 @@ four prevent; the last three detect after the fact, and the ADR says which is wh
 | Check | When | What it refuses |
 |---|---|---|
 | A `gitleaks` pre-commit hook, scoped to every repository under the estate directory | every commit, human or agent | a credential entering history |
-| A pre-push hook running the publication gate with the private name list, from the gate pinned at the estate's lock | every push from a clone of a repository designated public | in every commit new to the remote: a name, an address, a host, a version, a repository path or a scanner finding in its tree, its message or its paths; a name in the branch or tag being pushed or in a tag message; before anything leaves the machine |
+| A pre-push hook running the publication gate with the private name list, from the gate pinned at the estate's lock; `designation.sh` from the same lock classifies the push destination against the private designation list | every push to a repository designated public | in every commit new to the remote: a name, an address, a host, a version, a repository path or a scanner finding in its tree, its message or its paths; a name in the branch or tag being pushed or in a tag message; before anything leaves the machine |
 | The publication gate in shape-only mode, in this repository's CI | every push to any branch here, and every pull request | an address, host, version or repository path in the public half |
 | Policy clause `PUBLISH-02` in the house rules every consumer vendors | every agent session | an agent pushing to a public-designated repository without the gate, or copying the name list anywhere public |
 | The `secret-scan` reusable workflow | every pull request and push, every repository | the same as the pre-commit hook, where `--no-verify` cannot skip it |
@@ -138,7 +138,9 @@ the estate is worked from, and the weekly check is detection, not prevention; th
 so rather than pretending otherwise.
 
 **Costs.** Two repositories to keep in step, held by the lock and its check. A placeholder
-in the public policy that reads as a gap to a reader outside any estate. A weekly job in
+in the public policy that reads as a gap to a reader outside any estate, and to a reader of
+a public consumer inside one: the vendor gives the estate's values only to a consumer the
+estate does not designate public, so a public consumer carries the placeholder too. A weekly job in
 the private half that needs read access to this repository while it is still private. A
 public version of a design record is a second document to keep true, which is why the
 private original says when a public version exists.

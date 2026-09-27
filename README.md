@@ -11,11 +11,11 @@ hand it over. Each tool here catches one of those, and each one fails CI rather 
 | Tool | Catches | Run |
 |---|---|---|
 | [`baseline-agent`](baseline-agent/POLICY.md) | Coding agents that follow different rules in different repositories. One policy with stable clause ids, adapters for each runtime, rules, skills and agent definitions, in two vendor profiles. Where the policy needs a value that belongs to one estate, it carries a placeholder the estate's private overlay fills. | vendored, see below |
-| [`scripts/agent`](scripts/agent/README.md) | A consumer whose vendored rules drifted from the payload, or fell behind its version. `vendor.sh` copies a profile in and fills the placeholders from `--overlay`; `check.sh` reports drift; a recorded deviation ADR suppresses a finding. | `vendor.sh --profile app [--overlay dir]`, `check.sh [--overlay dir] <repo>` |
+| [`scripts/agent`](scripts/agent/README.md) | A consumer whose vendored rules drifted from the payload, or fell behind its version. `vendor.sh` copies a profile in and fills the placeholders from `--overlay`; `check.sh` reports drift; a recorded deviation ADR suppresses a finding. | `vendor.sh --profile app [--overlay dir --public-repos list]`, `check.sh [--overlay dir] <repo>` |
 | [`scripts/conformance`](scripts/conformance/README.md) | A repository that drifts from the version manifest: compiler release, wrapper version, unpinned actions, workflows without `permissions:`, images without a digest, volumes without a backup annotation. A recorded deviation ADR suppresses a finding; silent drift does not. | `check.sh <repo> baseline.json` |
 | [`scripts/docs`](scripts/docs/generate-adr-index.sh) | An ADR index that was typed by hand. The table in `docs/adr/README.md` is generated from the ADR files; `--check` fails when it differs. | `generate-adr-index.sh <repo> [--check]` |
 | [`tools/plan-portfolio`](tools/plan-portfolio/generate.py) | Plans scattered across repositories. One portfolio page and one page per repository, rendered from the plans' front matter; `--check` fails on drift and writes nothing. | `generate.py [--check]` |
-| [`scripts/publish-check`](scripts/publish-check/publish-check.sh) | A value on its way into a public repository: a name from your private list, an address, an internal host, an exact version, a path into a private repository, or anything two secret scanners flag. Exit 1 with file and line; scanner values are never printed. `--names none` runs the shapes only. | `publish-check.sh <dir> --names FILE\|none [--allow FILE]` |
+| [`scripts/publish-check`](scripts/publish-check/publish-check.sh) | A value on its way into a public repository: a name from your private list, an address, an internal host, an exact version, a path into a private repository, or anything two secret scanners flag. Exit 1 with file and line; scanner values are never printed. `--names none` runs the shapes only. | `publish-check.sh <dir> --names FILE\|none [--allow FILE]`; `designation.sh --list FILE --url URL\|--dir DIR` says whether a repository is on your list of public ones |
 | [`baseline-agent/skills/agent-mailbox`](baseline-agent/skills/agent-mailbox/SKILL.md) | Two coding agents that cannot message each other. `ambx` is a file-based mailbox with an audit trail; the skill file tells an agent when to use it and what it may not do with it. [Design](docs/design/agent-mailbox.md): locking, atomic delivery, a repairable outbox, and why identities are not authenticated. | `ambx <command>` |
 
 ## Principles
@@ -61,14 +61,17 @@ Run from inside the consumer repository. The house rules land between marker lin
 `.claude/`; a stamp records what was vendored.
 
 ```bash
-/path/to/estate-baseline/scripts/agent/vendor.sh --profile app --overlay /path/to/your-estate/overlay
+/path/to/estate-baseline/scripts/agent/vendor.sh --profile app --overlay /path/to/your-estate/overlay \
+  --public-repos /path/to/your-estate/public-repos.txt
 /path/to/estate-baseline/scripts/agent/check.sh --overlay /path/to/your-estate/overlay .
 ```
 
 The overlay directory holds one file per placeholder in the policy (`<name>.md` for
 `<!-- name-overlay -->`). Today there is one: `working-across-repositories.md`, the table of
 repositories in your estate. Without `--overlay` the placeholder stays, which is right for a
-repository outside any estate.
+repository outside any estate and for one your estate designates public. `--public-repos`
+names your list of repositories designated public; the vendor refuses the overlay for a
+repository on it, before writing anything, so your values never reach a public one.
 
 ## Tests
 
