@@ -29,8 +29,9 @@ Under `.github/actions/`. Logic lives in checked-in, `bats`-tested shell scripts
 ## blacksmith-node-app-ci caller contract
 
 - **Repo layout:** `apps/<app-name>/` containing a `Dockerfile` and `pnpm-lock.yaml`.
-- **Switch file:** a file (path passed as `switch-file`) with `CI_MODE=tekton|dual|blacksmith`
-  and `DEPLOY_ENGINE=tekton|blacksmith|none`.
+- **Switch file:** a file (path passed as `switch-file`) with `CI_MODE=blacksmith`
+  and `DEPLOY_ENGINE=blacksmith|none`. The values `tekton` and `dual` were retired on
+  2026-09-27 and are refused.
 - **Secrets:** `PUSH_TOKEN` (required: ghcr push and GitOps push; a fine-grained PAT) and
   optionally `SLACK_WEBHOOK_DEPLOYMENTS_URL`, passed in an explicit `secrets:` block.
   `secrets: inherit` is not supported.

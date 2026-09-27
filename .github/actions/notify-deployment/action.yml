@@ -13,7 +13,7 @@ inputs:
     required: false
     default: succeeded
   engine:
-    description: "CI/deploy engine label: github-actions | blacksmith | tekton."
+    description: "CI/deploy engine label: github-actions | blacksmith."
     required: false
     default: blacksmith
   environment:

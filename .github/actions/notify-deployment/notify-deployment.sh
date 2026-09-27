@@ -27,7 +27,7 @@ Usage:
 
 Options:
   --pipeline-name NAME  CI workflow or pipeline name
-  --engine ENGINE       CI/deploy engine: github-actions, blacksmith, tekton
+  --engine ENGINE       CI/deploy engine: github-actions, blacksmith
   --environment ENV     Deployment environment label (default: cloud)
   --run-name NAME       Human-readable run name
   --run-url URL         Link to the CI run
@@ -125,9 +125,6 @@ fi
 case "${ENGINE}" in
   blacksmith|github-actions|github_actions)
     ENGINE_LABEL="GitHub Actions / Blacksmith"
-    ;;
-  tekton)
-    ENGINE_LABEL="Tekton"
     ;;
   *)
     ENGINE_LABEL="${ENGINE}"
