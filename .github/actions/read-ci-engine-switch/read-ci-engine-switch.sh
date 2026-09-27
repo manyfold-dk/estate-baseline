@@ -2,13 +2,15 @@
 # Read and validate a generic CI engine switch (engine-agnostic gating).
 #
 # Switch file format:
-#   CI_MODE=tekton|dual|blacksmith
-#   DEPLOY_ENGINE=tekton|blacksmith|none
+#   CI_MODE=blacksmith            -- GitHub Actions on Blacksmith runners run the heavy CI
+#   DEPLOY_ENGINE=blacksmith|none -- whether that run may commit the image tag
+#
+# Tekton was the other engine until 2026-09-27; the values `tekton` and `dual` are refused
+# so a stale switch file fails loudly.
 #
 # Lifted from the platform's scripts/ci/read-ci-engine-switch.sh for the shared
-# baseline. Differences from the origin: no repo-root derivation (a relative
-# --env-file resolves against $GITHUB_WORKSPACE or cwd) and no --tekton-result
-# mode (Tekton cannot call a GitHub composite action; that mode stays platform-side).
+# baseline. Difference from the origin: no repo-root derivation (a relative
+# --env-file resolves against $GITHUB_WORKSPACE or cwd).
 set -eu
 
 ENV_FILE=""
@@ -95,33 +97,23 @@ DEPLOY_ENGINE=$(read_key DEPLOY_ENGINE)
 [ -n "${DEPLOY_ENGINE}" ] || die "DEPLOY_ENGINE is missing from ${ENV_FILE}"
 
 case "${CI_MODE}" in
-  tekton|dual|blacksmith) ;;
-  *) die "invalid CI_MODE '${CI_MODE}' for ${NAME} (expected: tekton, dual, blacksmith)" ;;
+  blacksmith) ;;
+  tekton|dual) die "CI_MODE '${CI_MODE}' for ${NAME}: Tekton was retired on 2026-09-27 (expected: blacksmith)" ;;
+  *) die "invalid CI_MODE '${CI_MODE}' for ${NAME} (expected: blacksmith)" ;;
 esac
 
 case "${DEPLOY_ENGINE}" in
-  tekton|blacksmith|none) ;;
-  *) die "invalid DEPLOY_ENGINE '${DEPLOY_ENGINE}' for ${NAME} (expected: tekton, blacksmith, none)" ;;
+  blacksmith|none) ;;
+  tekton) die "DEPLOY_ENGINE 'tekton' for ${NAME}: Tekton was retired on 2026-09-27 (expected: blacksmith, none)" ;;
+  *) die "invalid DEPLOY_ENGINE '${DEPLOY_ENGINE}' for ${NAME} (expected: blacksmith, none)" ;;
 esac
 
-case "${CI_MODE}" in
-  tekton)     RUN_TEKTON=true;  RUN_BLACKSMITH=false ;;
-  dual)       RUN_TEKTON=true;  RUN_BLACKSMITH=true ;;
-  blacksmith) RUN_TEKTON=false; RUN_BLACKSMITH=true ;;
-esac
+RUN_BLACKSMITH=true
 
 case "${DEPLOY_ENGINE}" in
-  tekton)     DEPLOY_TEKTON=true;  DEPLOY_BLACKSMITH=false ;;
-  blacksmith) DEPLOY_TEKTON=false; DEPLOY_BLACKSMITH=true ;;
-  none)       DEPLOY_TEKTON=false; DEPLOY_BLACKSMITH=false ;;
+  blacksmith) DEPLOY_BLACKSMITH=true ;;
+  none)       DEPLOY_BLACKSMITH=false ;;
 esac
-
-if [ "${DEPLOY_ENGINE}" = "tekton" ] && [ "${RUN_TEKTON}" != "true" ]; then
-  die "invalid ${NAME} switch: DEPLOY_ENGINE=tekton requires CI_MODE=tekton or dual"
-fi
-if [ "${DEPLOY_ENGINE}" = "blacksmith" ] && [ "${RUN_BLACKSMITH}" != "true" ]; then
-  die "invalid ${NAME} switch: DEPLOY_ENGINE=blacksmith requires CI_MODE=dual or blacksmith"
-fi
 
 if [ "${FORCE_RUN}" = "true" ]; then
   RUN_BLACKSMITH=true
@@ -129,13 +121,10 @@ fi
 if [ "${FORCE_DEPLOY}" = "true" ]; then
   RUN_BLACKSMITH=true
   DEPLOY_BLACKSMITH=true
-  DEPLOY_TEKTON=false
 fi
 
 value_of() {
   case "$1" in
-    run_tekton)        echo "${RUN_TEKTON}" ;;
-    deploy_tekton)     echo "${DEPLOY_TEKTON}" ;;
     run_blacksmith)    echo "${RUN_BLACKSMITH}" ;;
     deploy_blacksmith) echo "${DEPLOY_BLACKSMITH}" ;;
     ci_mode)           echo "${CI_MODE}" ;;
@@ -144,7 +133,7 @@ value_of() {
   esac
 }
 
-KEYS="run_tekton deploy_tekton run_blacksmith deploy_blacksmith ci_mode deploy_engine"
+KEYS="run_blacksmith deploy_blacksmith ci_mode deploy_engine"
 
 if [ "${QUIET}" != "true" ]; then
   for k in ${KEYS}; do

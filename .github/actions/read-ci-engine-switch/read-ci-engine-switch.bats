@@ -5,8 +5,8 @@ setup() {
   TMP="$BATS_TEST_TMPDIR"
 }
 
-@test "valid dual switch -> run+deploy blacksmith true" {
-  printf 'CI_MODE=dual\nDEPLOY_ENGINE=blacksmith\n' > "$TMP/switch.env"
+@test "blacksmith mode, deploy blacksmith -> run+deploy blacksmith true" {
+  printf 'CI_MODE=blacksmith\nDEPLOY_ENGINE=blacksmith\n' > "$TMP/switch.env"
   run "$SCRIPT" --env-file "$TMP/switch.env" --name testapp
   [ "$status" -eq 0 ]
   [[ "$output" == *"run_blacksmith=true"* ]]
@@ -34,32 +34,56 @@ setup() {
   [[ "$output" == *"invalid CI_MODE"* ]]
 }
 
-@test "inconsistent switch (deploy blacksmith but tekton-only) -> hard error" {
-  printf 'CI_MODE=tekton\nDEPLOY_ENGINE=blacksmith\n' > "$TMP/switch.env"
+@test "invalid DEPLOY_ENGINE -> hard error" {
+  printf 'CI_MODE=blacksmith\nDEPLOY_ENGINE=bogus\n' > "$TMP/switch.env"
   run "$SCRIPT" --env-file "$TMP/switch.env"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"requires CI_MODE=dual or blacksmith"* ]]
+  [[ "$output" == *"invalid DEPLOY_ENGINE"* ]]
 }
 
-@test "force-run overrides tekton-only mode" {
+@test "retired CI_MODE values tekton and dual are refused with the retirement date" {
+  for mode in tekton dual; do
+    printf 'CI_MODE=%s\nDEPLOY_ENGINE=none\n' "$mode" > "$TMP/switch.env"
+    run "$SCRIPT" --env-file "$TMP/switch.env" --name testapp
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"CI_MODE '$mode' for testapp: Tekton was retired on 2026-09-27"* ]]
+  done
+}
+
+@test "retired DEPLOY_ENGINE tekton is refused with the retirement date" {
+  printf 'CI_MODE=blacksmith\nDEPLOY_ENGINE=tekton\n' > "$TMP/switch.env"
+  run "$SCRIPT" --env-file "$TMP/switch.env" --name testapp
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"DEPLOY_ENGINE 'tekton' for testapp: Tekton was retired on 2026-09-27"* ]]
+}
+
+@test "force flags do not bypass a retired value" {
   printf 'CI_MODE=tekton\nDEPLOY_ENGINE=tekton\n' > "$TMP/switch.env"
+  run "$SCRIPT" --env-file "$TMP/switch.env" --force-run --force-deploy
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Tekton was retired"* ]]
+}
+
+@test "force-run is accepted and leaves deploy alone" {
+  printf 'CI_MODE=blacksmith\nDEPLOY_ENGINE=none\n' > "$TMP/switch.env"
   run "$SCRIPT" --env-file "$TMP/switch.env" --force-run
   [ "$status" -eq 0 ]
   [[ "$output" == *"run_blacksmith=true"* ]]
+  [[ "$output" == *"deploy_blacksmith=false"* ]]
 }
 
-@test "force-deploy overrides to blacksmith deploy" {
-  printf 'CI_MODE=tekton\nDEPLOY_ENGINE=tekton\n' > "$TMP/switch.env"
+@test "force-deploy overrides deploy none" {
+  printf 'CI_MODE=blacksmith\nDEPLOY_ENGINE=none\n' > "$TMP/switch.env"
   run "$SCRIPT" --env-file "$TMP/switch.env" --force-deploy
   [ "$status" -eq 0 ]
   [[ "$output" == *"deploy_blacksmith=true"* ]]
-  [[ "$output" == *"deploy_tekton=false"* ]]
 }
 
-@test "github-output mode writes keys to GITHUB_OUTPUT" {
-  printf 'CI_MODE=dual\nDEPLOY_ENGINE=blacksmith\n' > "$TMP/switch.env"
+@test "github-output mode writes exactly the four keys" {
+  printf 'CI_MODE=blacksmith\nDEPLOY_ENGINE=blacksmith\n' > "$TMP/switch.env"
   GITHUB_OUTPUT="$TMP/out.txt" run "$SCRIPT" --env-file "$TMP/switch.env" --github-output --quiet
   [ "$status" -eq 0 ]
+  [ "$(cut -d= -f1 "$TMP/out.txt" | tr '\n' ' ')" = "run_blacksmith deploy_blacksmith ci_mode deploy_engine " ]
   grep -q '^run_blacksmith=true$' "$TMP/out.txt"
   grep -q '^deploy_blacksmith=true$' "$TMP/out.txt"
 }
