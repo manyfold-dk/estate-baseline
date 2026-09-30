@@ -2,7 +2,8 @@
 # Usage: check.sh <consumer-dir> <baseline.json>
 # Lists unexplained drift vs baseline.json for maven.compiler.release (pom-declared)
 # and maven.wrapper.version (a file -- NOT carried by parent-POM inheritance).
-# A drift is suppressed by an `accepted` deviation ADR whose `field:` matches.
+# A drift is suppressed by an `accepted` deviation ADR whose `field:` matches, in every
+# file, or only in the files its `paths:` globs match when it has them.
 #
 # Exit codes: 0 = clean, 3 = drift, anything else = script/tooling error. The cron
 # relies on this to tell real drift from a broken run -- a jq/grep failure must never
@@ -10,14 +11,48 @@
 set -euo pipefail
 
 consumer="${1:?consumer dir required}"
+consumer="${consumer%/}"
 baseline="${2:?baseline.json required}"
 drift=0
 
-# True if an accepted deviation ADR for field $1 exists in the consumer repo.
+# The `paths:` globs of deviation ADR $1, one per line, read from its frontmatter; nothing
+# when it has none. A `paths:` that is not a non-empty block list is a broken input: read
+# as no scope, it would suppress the field in every file.
+deviation_paths() {
+  awk -v adr="$1" -v q="'" '
+    NR == 1 { if ($0 != "---") exit; next }
+    $0 == "---" { exit }
+    inlist && /^[ \t]*$/ { next }
+    inlist && /^[ \t]+#/ { next }
+    inlist && /^[ \t]+-[ \t]*[^ \t]/ {
+      sub(/^[ \t]+-[ \t]*/, ""); sub(/[ \t]+#.*$/, ""); sub(/[ \t]+$/, "")
+      gsub("^[\"" q "]|[\"" q "]$", ""); print; n++; next
+    }
+    { inlist = 0 }
+    /^paths:/ {
+      if ($0 !~ /^paths:[ \t]*(#.*)?$/) { bad = "takes a block list, one glob per - line"; exit }
+      seen = 1; inlist = 1
+    }
+    END {
+      if (bad == "" && seen && n == 0) bad = "lists no glob"
+      if (bad != "") { print "ERROR: " adr ": paths: " bad > "/dev/stderr"; exit 2 }
+    }
+  ' "$1"
+}
+
+# True if an accepted deviation ADR for field $1 covers the finding in file $2: an ADR
+# without `paths:` covers every file, one with `paths:` the files whose path from the
+# consumer root matches one of its globs (`*` also crosses `/`).
 has_deviation() {
-  local field="$1" f
+  local field="$1" rel="${2#"$consumer"/}" f globs glob
   while IFS= read -r f; do
-    grep -q '^status:[[:space:]]*accepted' "$f" && return 0
+    grep -q '^status:[[:space:]]*accepted' "$f" || continue
+    globs="$(deviation_paths "$f")" || exit 2
+    [ -z "$globs" ] && return 0
+    while IFS= read -r glob; do
+      # shellcheck disable=SC2053  # the right-hand side is a glob on purpose
+      [[ "$rel" == $glob ]] && return 0
+    done <<< "$globs"
   done < <(grep -rls "^field:[[:space:]]*${field}\$" "$consumer"/docs/adr 2>/dev/null)
   return 1
 }
@@ -30,7 +65,7 @@ want_of() {
 }
 
 report() {  # field, got, want, where
-  has_deviation "$1" && return 0
+  has_deviation "$1" "$4" && return 0
   echo "DRIFT: $1 = $2 (baseline $3) in $4"
   drift=3
 }

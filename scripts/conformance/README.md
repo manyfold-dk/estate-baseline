@@ -65,3 +65,32 @@ reconverge: when baseline moves to Java 26
 
 Only `status: accepted` ADRs whose `field` matches the drifting key suppress a finding.
 
+### Scope
+
+Without `paths:`, a deviation suppresses its field in every file of the repo. A new
+finding of the same rule is then silent as well. `paths:` limits the deviation to the files
+it names, so the rule still reports every other file:
+
+```yaml
+---
+status: accepted
+deviation-from: baseline v1.1
+field: manifest.image-digest
+tenant-value: "<image>:main-<commit>, written by the deploy job"
+baseline-value: "<image>@sha256:<digest>"
+reason: the deploy job writes a per-commit tag, not a digest
+reconverge: when the deploy job writes <tag>@<digest>
+paths:
+  - services/front/base/deployment.yaml
+  - deploy/local/*
+---
+```
+
+- Each entry is a shell glob, matched against the finding's path from the repository root.
+  `*` also crosses `/`, so `deploy/local/*` covers every file below `deploy/local/`.
+- The checker reads `paths:` from the frontmatter only, as a block list with one glob per
+  `- ` line. Comments and blank lines inside the list are allowed.
+- A `paths:` with an inline value (`paths: [a, b]`) or with no entry is a tooling error
+  (exit 2), not an unscoped deviation.
+- Prefer `paths:` for any deviation that covers some files and not the rule as a whole.
+

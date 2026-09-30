@@ -186,3 +186,73 @@ EOF
   run "$BATS_TEST_DIRNAME/check.sh" "$TMP" "$BASELINE"
   [ "$status" -eq 0 ]
 }
+
+# --- deviation scope (paths:) ---
+
+deployment() {  # file, image
+  mkdir -p "$(dirname "$TMP/$1")"
+  printf 'kind: Deployment\nspec:\n  template:\n    spec:\n      containers:\n        - image: %s\n' "$2" \
+    > "$TMP/$1"
+}
+
+@test "scoped deviation: suppresses the files its globs match and no other" {
+  deployment services/front/base/deployment.yaml web:main-1
+  deployment deploy/local/nested/deployment.yaml web:dev
+  deployment services/store/statefulset.yaml db:1.2
+  cat > "$TMP/docs/adr/0101-ci-tags.md" <<'EOF'
+---
+status: accepted
+field: manifest.image-digest
+paths:
+  - services/front/base/deployment.yaml
+  # a comment and a blank line do not end the list
+
+  - "deploy/local/*"   # `*` crosses directories
+---
+
+# ADR 0101
+
+paths:
+  - services/store/*
+EOF
+  run "$BATS_TEST_DIRNAME/check.sh" "$TMP" "$BASELINE"
+  [ "$status" -eq 3 ]
+  [[ "$output" == *"db:1.2"* ]]
+  [[ "$output" != *"web:main-1"* ]]
+  [[ "$output" != *"web:dev"* ]]
+}
+
+@test "scoped deviation: a consumer path with a trailing slash still matches" {
+  deployment services/front/base/deployment.yaml web:main-1
+  printf -- '---\nstatus: accepted\nfield: manifest.image-digest\npaths:\n  - services/front/*\n---\n' \
+    > "$TMP/docs/adr/0101-ci-tags.md"
+  run "$BATS_TEST_DIRNAME/check.sh" "$TMP/" "$BASELINE"
+  [ "$status" -eq 0 ]
+}
+
+@test "scoped deviation: an unaccepted ADR suppresses nothing" {
+  deployment services/front/base/deployment.yaml web:main-1
+  printf -- '---\nstatus: proposed\nfield: manifest.image-digest\npaths:\n  - services/front/*\n---\n' \
+    > "$TMP/docs/adr/0101-ci-tags.md"
+  run "$BATS_TEST_DIRNAME/check.sh" "$TMP" "$BASELINE"
+  [ "$status" -eq 3 ]
+  [[ "$output" == *"web:main-1"* ]]
+}
+
+@test "scoped deviation: an inline paths: value is a tooling error, never a wider scope" {
+  deployment services/front/base/deployment.yaml web:main-1
+  printf -- '---\nstatus: accepted\nfield: manifest.image-digest\npaths: [services/front/*]\n---\n' \
+    > "$TMP/docs/adr/0101-ci-tags.md"
+  run "$BATS_TEST_DIRNAME/check.sh" "$TMP" "$BASELINE"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"0101-ci-tags.md: paths: takes a block list"* ]]
+}
+
+@test "scoped deviation: an empty paths: list is a tooling error, never a wider scope" {
+  deployment services/front/base/deployment.yaml web:main-1
+  printf -- '---\nstatus: accepted\nfield: manifest.image-digest\npaths:\nreason: none listed\n---\n' \
+    > "$TMP/docs/adr/0101-ci-tags.md"
+  run "$BATS_TEST_DIRNAME/check.sh" "$TMP" "$BASELINE"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"0101-ci-tags.md: paths: lists no glob"* ]]
+}
