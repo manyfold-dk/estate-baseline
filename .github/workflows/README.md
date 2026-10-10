@@ -9,6 +9,7 @@ A floating tag can be repointed by anyone with write access; a commit id cannot.
 |---|---|---|
 | `secret-scan.yml` | `gitleaks` over the commits a pull request or push introduced; `full-history: true` for a scheduled sweep. Needs no inputs beyond that. | `workflow_call` |
 | `docs-link-check.yml` | `lychee` over Markdown, offline by default: relative links and anchors. `args` opts into online checking or scopes paths; a repo-local `.lycheeignore` is honoured. | `workflow_call` |
+| `actionlint.yml` | `actionlint` over `.github/workflows/`, `shellcheck` over `run:` scripts; image pinned by tag and digest. `args` overrides the default; a repo-local `.github/actionlint.yaml` is honoured, for example to declare self-hosted runner labels such as `blacksmith-*`. | `workflow_call` |
 | `manifest-validate.yml` | `kustomize build` plus `kubeconform` over a GitOps directory, tools pinned and checksummed. | `workflow_call` |
 | `blacksmith-node-app-ci.yml` | A Node/pnpm app: verify, build and push an image, bump the GitOps tag, notify. Runs on Blacksmith runners. | `workflow_call` |
 | `quarkus-build.yml` | Pull-request verify for a Maven module (`mvn verify`); nothing published. | `workflow_call` |

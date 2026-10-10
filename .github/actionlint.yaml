@@ -1,0 +1,5 @@
+# actionlint configuration, read by the actionlint workflow from the repository root.
+self-hosted-runner:
+  # Blacksmith runner labels, used by blacksmith-node-app-ci.yml and the blacksmith engine.
+  labels:
+    - blacksmith-*

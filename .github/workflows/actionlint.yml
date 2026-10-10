@@ -1,0 +1,28 @@
+name: actionlint (reusable)
+
+# Reusable actionlint over the caller's .github/workflows/: expression and type errors, unknown
+# inputs and runner labels, and shellcheck over run: scripts (bundled in the image). A
+# repo-local .github/actionlint.yaml is honoured automatically, for example to declare
+# self-hosted runner labels. The image is pinned by tag and index digest; bump both together.
+
+on:
+  workflow_call:
+    inputs:
+      args:
+        description: actionlint arguments. Default lints every workflow in .github/workflows/.
+        type: string
+        default: "-color"
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: docker://rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+        with:
+          args: ${{ inputs.args }}

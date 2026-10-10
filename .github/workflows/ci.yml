@@ -45,3 +45,8 @@ jobs:
   docs-link-check:
     # This repository's own relative links and anchors, through the reusable workflow.
     uses: ./.github/workflows/docs-link-check.yml
+
+  actionlint:
+    # This repository's own workflows, through the reusable workflow; .github/actionlint.yaml
+    # declares the Blacksmith runner labels.
+    uses: ./.github/workflows/actionlint.yml
