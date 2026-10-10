@@ -24,6 +24,14 @@ merged when they fit; there is no promise of either.
   fixtures do. Do not add it to `.publish-allow.tsv` to get past the gate; say why in the
   pull request instead.
 
+**`main` requires all four CI checks.** A repository ruleset on the default branch refuses a
+force-push, a deletion, and any commit on which `tests`, `publish-check`,
+`secret-scan / gitleaks` and `docs-link-check / lychee` have not passed. The checks must
+come from GitHub Actions, and nobody can bypass the ruleset. A commit therefore reaches
+`main` through a pull request, or by being pushed to another branch first and
+fast-forwarded onto `main` once its checks pass. GitHub push protection is on as well. This
+is the protected `main` of [ADR 0001](docs/adr/0001-public-standard-private-values.md#consequences).
+
 Changes to `scripts/publish-check/`, `.github/workflows/`, `.github/actions/` and
 `baseline-agent/POLICY.md` get a closer review than the rest, because consumers run them with
 their own credentials or treat them as rules.
