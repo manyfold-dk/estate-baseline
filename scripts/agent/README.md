@@ -109,7 +109,7 @@ files/links and never creates, deletes or replaces `~/.codex/AGENTS.md`.
 
 | Owner | Paths |
 |---|---|
-| Baseline | `~/.config/manyfold/agent-policy.md` -> path-derived `baseline-agent/POLICY.md`; mailbox launcher and Claude/Codex mailbox links; interim global shared workflow links under `~/.codex/skills/local` |
+| Baseline | `~/.config/manyfold/agent-policy.md` -> path-derived `baseline-agent/POLICY.md`; mailbox launcher and Claude/Codex mailbox links; interim global links under `~/.codex/skills/local` for `dev-workflow` and `verification-loop`, which only the `app` profile vendors. `install` removes its own links for the four skills every profile vendors; `--check` reports them as `STALE` |
 | Bootstrap | `~/.codex/AGENTS.md` -> its `codex/AGENTS.md`; machine Claude instructions and conditional backstop pointers |
 | Repository | Local `.claude` skill assets, environment overlays and enabled `.agents/skills` links |
 | Provider | Bundled skills/plugins; this migration does not edit them |

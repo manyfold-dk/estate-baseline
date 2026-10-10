@@ -55,8 +55,23 @@ else
 fi
 link "$skills/agent-mailbox" "$HOME/.claude/skills/agent-mailbox"
 # Interim shared-skill access. Domain/global retirement stays gated on runtime evidence.
-for skill in agent-mailbox archive-plan dev-workflow interview verification-loop plan-design plan-writing; do
+for skill in agent-mailbox dev-workflow verification-loop; do
   link "$skills/$skill" "$HOME/.codex/skills/local/$skill"
+done
+# Retired from the global root: every profile vendors these, and every consumer reaches them
+# through repo-local Codex discovery. Remove only this checkout's own links; keep anything else.
+for skill in archive-plan interview plan-design plan-writing; do
+  link_path="$HOME/.codex/skills/local/$skill"
+  if [ -L "$link_path" ] && [ "$(readlink "$link_path")" = "$skills/$skill" ]; then
+    if [ "$mode" = check ]; then
+      echo "STALE    $link_path (install retires it)"; fail=1
+    else
+      rm "$link_path"
+      echo "retired  $link_path"
+    fi
+  elif [ -e "$link_path" ] || [ -L "$link_path" ]; then
+    echo "kept     $link_path (not this checkout's link; left in place)"
+  fi
 done
 policy_dir="$HOME/.config/manyfold"
 if [ "$mode" = install ] && [ ! -e "$policy_dir" ]; then

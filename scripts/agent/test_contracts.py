@@ -211,9 +211,9 @@ class Contracts(unittest.TestCase):
 
     def test_customizations_existing_policy_mode_and_retired_preserved(self):
         home = self.root / 'home'
-        custom = home / '.codex/skills/local/interview/SKILL.md'
+        custom = home / '.codex/skills/local/dev-workflow/SKILL.md'
         custom.parent.mkdir(parents=True)
-        custom.write_text('---\nname: interview\n---\ncustom\n')
+        custom.write_text('---\nname: dev-workflow\n---\ncustom\n')
         policy = home / '.config/manyfold'
         policy.mkdir(parents=True); policy.chmod(0o755)
         self.assertNotEqual(0, self.install().returncode)
@@ -223,9 +223,40 @@ class Contracts(unittest.TestCase):
         retired.parent.mkdir(parents=True); retired.write_text('---\nname: sync-with-claude\n---\ncustom retired\n')
         self.assertTrue(any('RETIRED' in e for e in check(home)))
         self.assertIn('custom retired', retired.read_text())
-        duplicate = home / '.agents/skills/interview/SKILL.md'
+        duplicate = home / '.agents/skills/dev-workflow/SKILL.md'
         duplicate.parent.mkdir(parents=True); duplicate.write_text(custom.read_text())
         self.assertTrue(any('DUPLICATE' in e for e in check(home)))
+
+    def test_retired_global_links_removed_only_when_ours_and_idempotent(self):
+        home = self.root / 'home'
+        local = home / '.codex/skills/local'
+        local.mkdir(parents=True)
+        retired = ['archive-plan', 'interview', 'plan-design', 'plan-writing']
+        for skill in retired[:3]:
+            (local / skill).symlink_to(PAYLOAD / 'skills' / skill)
+        elsewhere = self.root / 'elsewhere/plan-writing'
+        elsewhere.mkdir(parents=True)
+        (local / 'plan-writing').symlink_to(elsewhere)
+        unrelated = local / 'unrelated'
+        unrelated.mkdir()
+        self.bootstrap_link()
+        result = self.install('--check')
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual(3, result.stdout.count('STALE'))
+        self.assertTrue(all((local / s).is_symlink() for s in retired[:3]))
+        result = self.install()
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual(3, result.stdout.count('retired '))
+        for skill in retired[:3]:
+            self.assertFalse((local / skill).is_symlink() or (local / skill).exists())
+        self.assertEqual(elsewhere, (local / 'plan-writing').readlink())
+        self.assertTrue(unrelated.is_dir())
+        for skill in ['agent-mailbox', 'dev-workflow', 'verification-loop']:
+            self.assertEqual(PAYLOAD / 'skills' / skill, (local / skill).readlink())
+        again = self.install()
+        self.assertEqual(0, again.returncode)
+        self.assertNotIn('retired ', again.stdout)
+        self.assertEqual(0, self.install('--check').returncode)
 
     def test_one_skill_reachable_from_both_user_roots_is_not_a_duplicate(self):
         # Platform provisioning (Omarchy) links its own skills into both discovered roots
