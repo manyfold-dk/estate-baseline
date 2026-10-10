@@ -183,20 +183,21 @@ absence.
 
   | Corrupt file | Recovery |
   |--------------|----------|
-  | `manifest.json` | `repair --task <task>` rebuilds `agents` from `agents/*.json` (falling back to inbox/outbox `from`/`to` frontmatter if those are also gone). |
-  | `agents/<id>.json` | `repair --task` drops and rebuilds the bad record from `manifest` + that agent's `status`. |
-  | `status/<id>.json` | `repair --task` resets it to a fresh record; `last_read_stamp` is preserved if salvageable, else reset to empty (unread may re-show) with a warning. |
+  | `manifest.json` | `repair --task <task>` rebuilds `agents` from the readable `agents/*.json` records, plus every id named in inbox/outbox/archive `from`/`to` frontmatter. |
+  | `agents/<id>.json` | `repair --task` drops the bad record; the agent stays in the manifest if message frontmatter names it, with role `unknown`. |
+  | `status/<id>.json` | `repair --task` resets it to a fresh `idle` record with an empty `last_read_stamp`, so earlier messages show as unread again. |
   | `identities.json` | `repair --identities` (root-scoped) resets the cache to `{}`; agents re-save identity on the next `init`/`join`. It is only a convenience cache. |
 
 ## Presence and the Board
 
 - Every command run by an agent bumps that agent's `last_seen_at` (under the lock).
-- `status set --state working --note "..."` (alias `heartbeat`) updates state/note for long silent
+- `status --state working --note "..."` (alias `heartbeat`) updates state/note for long silent
   stretches.
 - `board` is the supervision cockpit. For each registered agent it prints: role, `state`, age since
   `last_seen_at` (flagged `STALE` past `--stale-after`, default 600s, also `AGENT_MAILBOX_STALE_SECS`),
-  count of messages past that agent's read cursor (who is behind), and the last message
-  kind/subject/time. Read-only; no cursor side effects.
+  count of messages past that agent's read cursor (who is behind), and the agent's status note.
+  Read-only; no cursor side effects. A last-message column was designed but not built; the
+  command surface is frozen without it.
 
 ## Autonomy Loop
 
@@ -239,10 +240,14 @@ absence.
 | `agents` | List registered agents | -- |
 | `list` | List mailboxes under root | -- |
 | `whoami` | Show resolved identity for this repo | -- |
-| `bootstrap` | Print a peer's join/read block | `--agent` |
+| `bootstrap` | Print a peer's join/read block | `--agent`, `--format`, `--cli` |
+| `kickoff` | Print a peer's prompt-form kickoff one-liner | `--agent`, `--format`, `--cli` |
 | `archive` | Move read messages to archive/ | `--agent` |
 | `repair` | Per-file recovery (manifest/agents/status; outbox mirror) | `--task`, `--identities` |
-| `form` / `wizard` | Intake form / interactive prompts | `--mode` |
+| `form` | Print a one-shot intake form | `--mode` |
+
+An interactive `wizard` was designed but not built; `form` covers intake and the command
+surface is frozen without it.
 
 Identity resolution (flag -> `AGENT_MAILBOX_TASK`/`AGENT_MAILBOX_AGENT` env -> per-repo
 `identities.json`) applies to every command that needs a task/agent.
@@ -288,7 +293,8 @@ revisit if a quiet always-zero exit proves friendlier in practice.
 
 ---
 
-Published version of a design written 2026-06-14 (last updated 2026-06-20). Commit ids, the
-relocation steps on one machine and the name of one existing mailbox are removed; the reasoning,
-the dates and the non-goals are unchanged. At the time the skill lived in a private baseline
+Published version of a design written 2026-06-14 (last updated 2026-06-20; reconciled with
+the built command surface 2026-10-10). Commit ids, the relocation steps on one machine and the
+name of one existing mailbox are removed; the reasoning, the dates and the non-goals are
+unchanged. At the time the skill lived in a private baseline
 repository; it has lived in this one since 2026-09-22.
