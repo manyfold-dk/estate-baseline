@@ -1,0 +1,16 @@
+name: actionlint
+
+# actionlint over this repository's workflows, shellcheck included, on every pull request and
+# push to main. Declare self-hosted runner labels in .github/actionlint.yaml.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    uses: manyfold-dk/estate-baseline/.github/workflows/actionlint.yml@<sha>
