@@ -198,6 +198,30 @@ class EndToEndTests(unittest.TestCase):
                   "--subject", "reply", "--body", "r", "--reply-to", parent_id)
         reply_thread = [l for l in out.stdout.splitlines() if l.startswith("thread=")][0].split("=")[1]
         self.assertEqual(reply_thread, parent_thread)
+        # the parent's inbox copy and outbox mirror are one message, not a collision
+        self.assertNotIn("matched multiple", out.stderr)
+
+    def test_reply_to_multi_recipient_parent_is_not_ambiguous(self):
+        run(self.root, "init", "--task", "t", "--agent", "main", "--peer", "a,b", "--body", "x")
+        out = run(self.root, "post", "--task", "t", "--agent", "main", "--to", "a,b",
+                  "--subject", "parent", "--body", "p")
+        parent_id = [l for l in out.stdout.splitlines() if l.startswith("message_id=")][0].split("=")[1]
+        base = store.mailbox_path(self.root, "t")
+        self.assertEqual(len(messages.find_by_id(base, parent_id)), 4)
+        _, warn = messages.resolve_thread(base, parent_id)
+        self.assertIsNone(warn)
+
+    def test_reply_to_real_id_collision_warns(self):
+        run(self.root, "init", "--task", "t", "--agent", "main", "--peer", "dep", "--body", "x")
+        base = store.mailbox_path(self.root, "t")
+        for stamp_value, thread in (("20260101T000000000000Z", "first"),
+                                    ("20260102T000000000000Z", "second")):
+            name = messages.build_filename(stamp_value, "cafef00d", "main", "dep", "status", "s")
+            (base / "inbox" / "dep" / name).write_text(
+                f"---\nid: cafef00d\nthread: {thread}\nfrom: main\nto: dep\n---\n",
+                encoding="utf-8")
+        thread, warn = messages.resolve_thread(base, "cafef00d")
+        self.assertEqual((thread, warn), ("first", "ambiguous"))
 
     def test_reply_to_missing_parent_falls_back(self):
         run(self.root, "init", "--task", "t", "--agent", "main", "--peer", "dep", "--body", "x")

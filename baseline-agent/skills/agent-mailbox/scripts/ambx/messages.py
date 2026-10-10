@@ -58,7 +58,10 @@ def resolve_thread(base: Path, reply_to: str | None) -> tuple[str | None, str | 
     matches = find_by_id(base, reply_to)
     if not matches:
         return reply_to, "missing"          # parent not local: treat ref as root
-    warn = "ambiguous" if len(matches) > 1 else None
+    # One post leaves an inbox copy and an outbox mirror per recipient, all sharing the
+    # stamp and sender; only distinct posts under the same id are a collision.
+    distinct = {(_stamp_of(path), fm.get("from")) for path, fm in matches}
+    warn = "ambiguous" if len(distinct) > 1 else None
     thread = matches[0][1].get("thread") or reply_to
     return thread, warn
 
