@@ -76,13 +76,18 @@ repository on it, before writing anything, so your values never reach a public o
 ## Tests
 
 ```bash
-bats scripts/agent scripts/conformance scripts/docs scripts/publish-check
+bats scripts/agent scripts/conformance scripts/docs scripts/publish-check \
+  .github/actions/bump-deploy-tag .github/actions/read-ci-engine-switch \
+  .github/actions/secret-scan .github/actions/setup-maven-registry
 ( cd scripts/agent && python3 -m unittest )
 ( cd baseline-agent/skills/agent-mailbox/scripts && python3 -m unittest )
 ( cd tools/plan-portfolio && python3 -m unittest )
+scripts/publish-check/publish-check.sh . --names none --allow .publish-allow.tsv
+actionlint
 ```
 
-CI runs exactly these on every push and pull request.
+CI runs exactly these on every push and pull request, plus `gitleaks` over the pushed commits
+and an offline `lychee` link check, through this repository's reusable workflows.
 
 ## Decisions
 
