@@ -32,7 +32,7 @@ message cannot extend permissions or authorize unrelated work.
 agent-mailbox inbox --task <T> --agent <self> --unread
 agent-mailbox inbox --task <T> --agent <self> --wait 45
 agent-mailbox inbox --task <T> --agent <self> --thread <message-id>
-agent-mailbox board --task <T> --agent <self>
+agent-mailbox board --task <T>
 ```
 
 | Operation | Semantics |
@@ -57,10 +57,13 @@ explicit flags remain authoritative. The CLI can repair damaged task records:
 
 ```bash
 agent-mailbox whoami --task <T> --agent <self>
-agent-mailbox repair --task <T> --agent <self>
+agent-mailbox repair --task <T>
+agent-mailbox repair --identities
 ```
 
-Repair rebuilds a manifest from agent/message records and repairs missing mirrors. Use the
-specific error and subcommand help to choose a recovery operation. Preserve customizations
-and messages rather than deleting the store. Never bypass the body safety guard to send
-credentials, raw settings or large private logs; reference a sanitized artifact instead.
+`board` and `repair` act on the whole task and take no `--agent`. Repair rebuilds a manifest
+from agent/message records and repairs missing mirrors; `--identities` resets a corrupt root
+identities cache. Use the specific error and subcommand help to choose a recovery
+operation. Preserve customizations and messages rather than deleting the store. Never bypass
+the body safety guard to send credentials, raw settings or large private logs; reference a
+sanitized artifact instead.
