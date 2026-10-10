@@ -32,6 +32,10 @@ come from GitHub Actions, and nobody can bypass the ruleset. A commit therefore 
 fast-forwarded onto `main` once its checks pass. GitHub push protection is on as well. This
 is the protected `main` of [ADR 0001](docs/adr/0001-public-standard-private-values.md#consequences).
 
+**Release tags cannot move.** A second ruleset refuses an update or a deletion of any `v*`
+tag, again with no bypass, so a release a consumer pinned by tag keeps naming the commit it was
+cut from. Consumers still pin by commit id.
+
 Changes to `scripts/publish-check/`, `.github/workflows/`, `.github/actions/` and
 `baseline-agent/POLICY.md` get a closer review than the rest, because consumers run them with
 their own credentials or treat them as rules.
