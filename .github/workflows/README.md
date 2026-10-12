@@ -36,6 +36,12 @@ Under `.github/actions/`. Logic lives in checked-in, `bats`-tested shell scripts
 - **Secrets:** `PUSH_TOKEN` (required: ghcr push and GitOps push; a fine-grained PAT) and
   optionally `SLACK_WEBHOOK_DEPLOYMENTS_URL`, passed in an explicit `secrets:` block.
   `secrets: inherit` is not supported.
+- **Deploy App (optional):** `DEPLOY_APP_CLIENT_ID` and `DEPLOY_APP_PRIVATE_KEY`, both or
+  neither, name a GitHub App with Contents read and write on the calling repository. With
+  them, the GitOps push uses a short-lived installation token of that App
+  (`actions/create-github-app-token`, revoked when the job ends) and the deploy commit carries
+  the App's bot identity. Use this when a ruleset on `main` admits only that App as a bypass
+  actor. The image push keeps `PUSH_TOKEN`. One secret without the other fails the job.
 - **Inputs:** `app-name`, `image-base`, `manifest-dir`, `switch-file` (required);
   `node-version`, `pnpm-version`, `argocd-url`, `force-run`, `force-deploy`.
 - **No caller-side scripts.** The three scripts this workflow depends on are composite

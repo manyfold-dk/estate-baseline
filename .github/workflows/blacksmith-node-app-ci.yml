@@ -19,6 +19,17 @@ on:
           Scope: write:packages + contents write on the calling repo (fine-grained
           PAT preferred). Required -- there is deliberately no fallback.
         required: true
+      DEPLOY_APP_CLIENT_ID:
+        description: >-
+          Client ID of a GitHub App with Contents read and write on the calling repo.
+          With DEPLOY_APP_PRIVATE_KEY, the GitOps manifest push uses a short-lived
+          installation token of this App and commits as its bot, for example when the
+          App is the only bypass actor of a ruleset on main. Pass both or neither;
+          without them the push uses PUSH_TOKEN. The image push always uses PUSH_TOKEN.
+        required: false
+      DEPLOY_APP_PRIVATE_KEY:
+        description: Private key of the App named by DEPLOY_APP_CLIENT_ID.
+        required: false
       SLACK_WEBHOOK_DEPLOYMENTS_URL:
         description: Slack incoming-webhook URL for deploy notifications. Step is skipped when absent.
         required: false
@@ -122,18 +133,49 @@ jobs:
     # only in `env:`/`with:` (GitHub context-availability rules).
     env:
       SLACK_WEBHOOK_DEPLOYMENTS_URL: ${{ secrets.SLACK_WEBHOOK_DEPLOYMENTS_URL }}
+      # Whether the deploy App is configured, as booleans: the App credentials themselves
+      # never enter the job environment.
+      DEPLOY_APP_SET: ${{ secrets.DEPLOY_APP_CLIENT_ID != '' && secrets.DEPLOY_APP_PRIVATE_KEY != '' }}
+      DEPLOY_APP_PARTIAL: ${{ (secrets.DEPLOY_APP_CLIENT_ID != '') != (secrets.DEPLOY_APP_PRIVATE_KEY != '') }}
     steps:
+      # A half-configured App would otherwise fall back to PUSH_TOKEN without a word.
+      - name: Refuse a half-configured deploy App
+        if: ${{ env.DEPLOY_APP_PARTIAL == 'true' }}
+        run: |
+          echo "::error::Pass both DEPLOY_APP_CLIENT_ID and DEPLOY_APP_PRIVATE_KEY, or neither."
+          exit 1
+      - name: Mint the deploy App token
+        id: app-token
+        if: ${{ env.DEPLOY_APP_SET == 'true' }}
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.DEPLOY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
+          permission-contents: write
+      - name: Resolve the deploy App's bot identity
+        id: app-identity
+        if: ${{ env.DEPLOY_APP_SET == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          set -eu
+          bot_id=$(gh api "users/${APP_SLUG}%5Bbot%5D" --jq .id)
+          echo "name=${APP_SLUG}[bot]" >> "$GITHUB_OUTPUT"
+          echo "email=${bot_id}+${APP_SLUG}[bot]@users.noreply.github.com" >> "$GITHUB_OUTPUT"
       - uses: useblacksmith/checkout@41cdeedae8edb2e684ba22896a5fd2a3cb85db6b # v1
         with:
           ref: main
-          token: ${{ secrets.PUSH_TOKEN }}
+          token: ${{ steps.app-token.outputs.token || secrets.PUSH_TOKEN }}
       - name: Commit and push image tag
-        uses: manyfold-dk/estate-baseline/.github/actions/bump-deploy-tag@790b5626e0f5c904b81ffd99596384d3ef2530ff # v1.1.0
+        uses: manyfold-dk/estate-baseline/.github/actions/bump-deploy-tag@c67a216bcb2937f59b6a5459811e0d0be6c4fa1f # v1.3.0
         with:
           app-name: ${{ inputs.app-name }}
           image-base: ${{ inputs.image-base }}
           tag: ${{ needs.read-switch.outputs.image_tag }}
           manifest-dir: ${{ inputs.manifest-dir }}
+          git-user-name: ${{ steps.app-identity.outputs.name }}
+          git-user-email: ${{ steps.app-identity.outputs.email }}
       - name: Scrub push credentials
         if: always()
         run: git config --local --unset-all http.https://github.com/.extraheader || true
