@@ -26,6 +26,14 @@ inputs:
     description: Branch to push the deploy commit to.
     required: false
     default: main
+  git-user-name:
+    description: "Name on the deploy commit, e.g. a GitHub App's '<slug>[bot]' when the push uses its token. Empty keeps the CI identity."
+    required: false
+    default: ""
+  git-user-email:
+    description: "Email on the deploy commit, e.g. '<user-id>+<slug>[bot]@users.noreply.github.com'. Empty keeps the CI identity."
+    required: false
+    default: ""
 runs:
   using: composite
   steps:
@@ -39,16 +47,23 @@ runs:
         IN_MANIFEST: ${{ inputs.manifest }}
         IN_MANIFEST_DIR: ${{ inputs.manifest-dir }}
         IN_BRANCH: ${{ inputs.branch }}
+        IN_GIT_USER_NAME: ${{ inputs.git-user-name }}
+        IN_GIT_USER_EMAIL: ${{ inputs.git-user-email }}
       run: |
         set -eu
         ARGS=""
         [ -n "$IN_DIGEST" ] && ARGS="$ARGS --digest $IN_DIGEST"
         [ -n "$IN_MANIFEST" ] && ARGS="$ARGS --manifest $IN_MANIFEST"
         [ -n "$IN_MANIFEST_DIR" ] && ARGS="$ARGS --manifest-dir $IN_MANIFEST_DIR"
+        # A bot name carries brackets and an identity may carry spaces, so these two travel as
+        # positional words, not through the word-split ARGS.
+        set --
+        [ -n "$IN_GIT_USER_NAME" ] && set -- "$@" --git-user-name "$IN_GIT_USER_NAME"
+        [ -n "$IN_GIT_USER_EMAIL" ] && set -- "$@" --git-user-email "$IN_GIT_USER_EMAIL"
         # shellcheck disable=SC2086
         "${{ github.action_path }}/bump-deploy-tag.sh" \
           --app-name "$IN_APP_NAME" \
           --image-base "$IN_IMAGE_BASE" \
           --tag "$IN_TAG" \
           --branch "$IN_BRANCH" \
-          $ARGS
+          $ARGS "$@"

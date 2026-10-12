@@ -15,6 +15,10 @@
 # up to 3x; after a reset, a clean diff means the remote already carries the tag
 # (success, not failure).
 #
+# --git-user-name / --git-user-email set the deploy commit's identity, for example a GitHub
+# App's bot when the caller pushes with that App's installation token. Both default to the
+# CI identity below.
+#
 # --digest pins the image by content as well as by tag, which the conformance rule
 # manifest.image-digest requires of a workload. Single-manifest flavour only: the
 # directory flavour also rewrites kustomization newTag entries, which carry no digest.
@@ -27,12 +31,15 @@ DIGEST=""
 MANIFEST=""
 MANIFEST_DIR=""
 BRANCH="main"
+GIT_USER_NAME="manyfold-ci[bot]"
+GIT_USER_EMAIL="ci@manyfold.dk"
 
 usage() {
   cat <<'EOF'
 Usage:
   bump-deploy-tag.sh --app-name APP --image-base REPO --tag TAG \
-    ( --manifest FILE [--digest sha256:HEX] | --manifest-dir DIR ) [--branch main]
+    ( --manifest FILE [--digest sha256:HEX] | --manifest-dir DIR ) [--branch main] \
+    [--git-user-name NAME --git-user-email EMAIL]
 EOF
 }
 
@@ -78,6 +85,16 @@ while [ $# -gt 0 ]; do
       BRANCH="$2"
       shift 2
       ;;
+    --git-user-name)
+      [ $# -ge 2 ] || die "--git-user-name requires an argument"
+      GIT_USER_NAME="$2"
+      shift 2
+      ;;
+    --git-user-email)
+      [ $# -ge 2 ] || die "--git-user-email requires an argument"
+      GIT_USER_EMAIL="$2"
+      shift 2
+      ;;
     -h|--help)
       usage
       exit 0
@@ -91,6 +108,8 @@ done
 [ -n "${APP_NAME}" ] || die "--app-name is required"
 [ -n "${IMAGE_BASE}" ] || die "--image-base is required"
 [ -n "${TAG}" ] || die "--tag is required"
+[ -n "${GIT_USER_NAME}" ] || die "--git-user-name must not be empty"
+[ -n "${GIT_USER_EMAIL}" ] || die "--git-user-email must not be empty"
 
 if [ -n "${MANIFEST}" ] && [ -n "${MANIFEST_DIR}" ]; then
   die "--manifest and --manifest-dir are mutually exclusive"
@@ -220,8 +239,8 @@ if git diff --quiet -- "${CHANGE_PATH}"; then
   exit 0
 fi
 
-git config user.name "manyfold-ci[bot]"
-git config user.email "ci@manyfold.dk"
+git config user.name "${GIT_USER_NAME}"
+git config user.email "${GIT_USER_EMAIL}"
 
 MSG="chore(deploy): update ${APP_NAME} image tag to ${TAG} [skip ci]"
 BODY="Automated commit by the ${APP_NAME} CI workflow."

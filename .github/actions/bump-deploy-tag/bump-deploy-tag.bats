@@ -72,6 +72,28 @@ origin_image_tag() {
   grep -q "image: ${IMAGE}:new2  # pinned at release" gitops/prod/deployment.yaml
 }
 
+@test "identity: the deploy commit carries the CI identity by default" {
+  run "$SCRIPT" --app-name app --image-base "$IMAGE" --tag id1 --manifest gitops/prod/deployment.yaml
+  [ "$status" -eq 0 ]
+  [ "$(git -C "$ORIGIN" log -1 --format='%an <%ae>' main)" = "manyfold-ci[bot] <ci@manyfold.dk>" ]
+}
+
+@test "identity: --git-user-name and --git-user-email set author and committer" {
+  run "$SCRIPT" --app-name app --image-base "$IMAGE" --tag id2 --manifest gitops/prod/deployment.yaml \
+    --git-user-name "deploy-app[bot]" --git-user-email "1+deploy-app[bot]@test"
+  [ "$status" -eq 0 ]
+  [ "$(git -C "$ORIGIN" log -1 --format='%an <%ae>|%cn <%ce>' main)" = \
+    "deploy-app[bot] <1+deploy-app[bot]@test>|deploy-app[bot] <1+deploy-app[bot]@test>" ]
+}
+
+@test "identity: an empty --git-user-name is refused before anything is written" {
+  run "$SCRIPT" --app-name app --image-base "$IMAGE" --tag id3 --manifest gitops/prod/deployment.yaml \
+    --git-user-name ""
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"--git-user-name must not be empty"* ]]
+  [ "$(origin_image_tag)" = "old" ]
+}
+
 @test "no-op when already at the target tag (no commit/push)" {
   before="$(git rev-parse HEAD)"
   run "$SCRIPT" --app-name app --image-base "$IMAGE" --tag old --manifest gitops/prod/deployment.yaml
