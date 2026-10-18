@@ -12,7 +12,9 @@
 #                  the most a public repository's own CI can do; say it explicitly.
 #   2. gitleaks    `gitleaks dir`, values redacted
 #   3. trufflehog  `trufflehog filesystem --no-verification`: every candidate counts, and
-#                  no suspected credential is sent to a provider to find out if it is live
+#                  no suspected credential is sent to a provider to find out if it is live.
+#                  The FlatIO detector is excluded: it flags every Yarn lockfile checksum
+#                  beside a package name containing "flat", and no exemption can stop that.
 #
 # Exit 0: no hit. Exit 1: at least one hit, each printed as file:line. Exit 2: usage error
 # or a missing tool -- a gate that cannot run has not passed. Scanner findings never print
@@ -150,7 +152,11 @@ echo "== trufflehog"
 # heading anchors of a table of contents, and no allow row can exempt a scanner finding.
 th_raw="$(mktemp)"; th_err="$(mktemp)"
 th_rc=0
-trufflehog filesystem "$dir" --json --no-verification --no-update --fail-on-scan-errors > "$th_raw" 2> "$th_err" || th_rc=$?
+# FlatIO is excluded: a Yarn lockfile writes each checksum as 128 hex characters, and the
+# detector matches one near any package name containing "flat". A flat.io API key is not a
+# credential class this gate protects; gitleaks still scans lockfiles.
+trufflehog filesystem "$dir" --json --no-verification --no-update --fail-on-scan-errors \
+  --exclude-detectors=FlatIO > "$th_raw" 2> "$th_err" || th_rc=$?
 if [ "$th_rc" -ne 0 ] && [ "$th_rc" -ne 183 ]; then
   echo "trufflehog failed (rc=$th_rc); nothing was checked by it:" >&2; sed -n 1,20p "$th_err" >&2
   rm -f "$th_raw" "$th_err"; exit 2
