@@ -1,0 +1,35 @@
+# This repository in the developer portal's catalog. The system it names is declared with
+# the platform's other catalog data and resolves across catalog locations.
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: estate-baseline
+  title: Estate baseline
+  description: The public half of a baseline -- the policy coding agents vendor, the tooling that keeps a set of repositories to one standard, and reusable CI.
+  annotations:
+    github.com/project-slug: manyfold-dk/estate-baseline
+    backstage.io/source-location: url:https://github.com/manyfold-dk/estate-baseline/tree/main/
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - bash
+    - python
+    - github-actions
+    - agents
+  links:
+    - url: https://github.com/manyfold-dk/estate-baseline
+      title: Repository
+      icon: github
+    - url: https://github.com/manyfold-dk/estate-baseline/blob/main/docs/adr/README.md
+      title: Architecture decisions
+      icon: docs
+    - url: https://github.com/manyfold-dk/estate-baseline/blob/main/baseline-agent/POLICY.md
+      title: Agent policy
+      icon: docs
+    - url: https://github.com/manyfold-dk/estate-baseline/blob/main/scripts/conformance/README.md
+      title: Conformance checks
+      icon: docs
+spec:
+  type: library
+  lifecycle: production
+  owner: platform-operators
+  system: estate-baseline
