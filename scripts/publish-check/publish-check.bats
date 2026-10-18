@@ -124,6 +124,19 @@ teardown() { [ -z "${tmp:-}" ] || rm -rf "$tmp"; }
   [[ "$output" == *"settings.txt:2: Github (value redacted)"* ]]
 }
 
+@test "a Yarn lockfile checksum beside a package name with 'flat' passes trufflehog" {
+  # Yarn 4 writes each checksum as 128 hex characters; FlatIO matches any such string near
+  # the word "flat" (array-flatten, flat-cache). A real digest, not a repeated character:
+  # trufflehog filters a low-entropy match out, and the test would pass for that reason.
+  sum="$(python3 -c 'import hashlib; print(hashlib.sha512(b"fixture").hexdigest())')"
+  ver="1.1"; ver="$ver.1"
+  printf '"array-flatten@npm:%s":\n  checksum: 10c0/%s\n' "$ver" "$sum" > "$export/yarn.lock"
+  printf 'exact version\t*\tyarn.lock\n' > "$tmp/allow.tsv"
+  run "$check" "$export" --names none --allow "$tmp/allow.tsv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"trufflehog: 0 hit(s)"* ]]
+}
+
 @test "all three checks run even after the first one fails" {
   echo "hosted for zorbulon" > "$export/docs/tenants.md"
   run "$check" "$export" --names "$names"
