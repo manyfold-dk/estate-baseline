@@ -1,0 +1,22 @@
+# TechDocs for this repository: the developer portal builds docs/ with mkdocs and the
+# techdocs-core plugin (catalog-info.yaml, backstage.io/techdocs-ref: dir:.). The
+# documents are written for GitHub; the portal renders them as they are.
+site_name: Estate baseline
+site_description: The policy coding agents vendor, the tooling that keeps a set of repositories to one standard, and reusable CI.
+repo_url: https://github.com/manyfold-dk/estate-baseline
+edit_uri: edit/main/docs/
+docs_dir: docs
+
+plugins:
+  - techdocs-core
+  # docs/ has no index page; the site opens on the decision index.
+  - redirects:
+      redirect_maps:
+        index.md: adr/README.md
+
+nav:
+  - Decisions: adr/README.md
+  - Best practices: best-practices.md
+  - Maven conventions: maven-conventions.md
+  - Design:
+      - design/agent-mailbox.md
